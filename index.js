@@ -6,8 +6,14 @@ const child_process = require('child_process')
 const fs = require("fs-extra")
 const async = require("async")
 const stringify = require("json-stable-stringify")
-const commandLineArgs = require('command-line-args')
-const commandLineUsage = require('command-line-usage')
+
+const {
+  cmdOptions,
+  optionDefinitions,
+  tryCmdOptions,
+  validateCmdOptions,
+  usage
+} = require('./cmdOptions')
 
 const BASH='c:/cygwin64/bin/bash.exe'
 const PROJECT_DIR = '.'
@@ -19,54 +25,42 @@ const OUT_EXT = '.out'
 const OUT_DIR_NAME = 'output'
 const OUT_DIR = path.join(PROJECT_DIR, OUT_DIR_NAME)
 
-const cmdOptions = tryCmdOptions()
 if (cmdOptions.help || !validateCmdOptions()) {
   usage()
   process.exit(1)
 }
-
-const COMPILERS = {
-  bash: {
-    cmd: "bash",
-    cmdArgs: "",
-    title: "bash",
-  },
-  gawk: {
-    cmd: "gawk",
-    cmdArgs: "-f",
-    title: "gawk",
-  },
-  nodejs: {
-    cmd: "node",
-    cmdArgs: "",
-    title: "nodejs"
-  },
-}
-
+const COMPILERS = require('./compilers')
 const TESTS = {}
+const EXPECTED = {}
 
+console.time('readTests')
 async.series([
   readTests
 ], (err, res) => {
   if (err)
     return console.error(err)
+  console.timeEnd('readTests')
   Object.assign(TESTS, res[0].tests)
+  Object.assign(EXPECTED, res[0].expected)
   if (cmdOptions.config)
     pretty(COMPILERS)
   if (cmdOptions.list) {
     pretty(TESTS)
+    pretty(EXPECTED)
   }
   if (cmdOptions.run)
+    // console.time('runTests')
     runTests((err, res) => {
       if (err)
         console.error('runTests error: %j', err)
       if (res)
-        console.log('runTetss res: %j', res)
+        console.log('runTests res: %j', res)
+      // console.timeEnd('runTests')
     })
 })
 
 function readTests(cb) {
-  const result = { tests: {} }
+  const readTestsResult = { tests: {}, expected: {} }
   let sortFn = (a, b) => {
     if (a.path > b.path) return 1
     else if (a.path < b.path) return -1
@@ -76,92 +70,49 @@ function readTests(cb) {
   fs.readdir(TESTS_DIR_NAME, { recursive: true, withFileTypes: true }, (err, list) => {
     if (err)
       return console.error(err)
-    list.sort(sortFn)
-      .forEach(de => processDirEntry(de, result))
-    cb(null, result)
+    async.each(list.sort(sortFn), processDirEntry, err => {
+      if (err) return cb(err)
+      cb(null, readTestsResult)
+    })
   })
-}
+  function processDirEntry(de, cb) {
+    const expected = readTestsResult.expected
+    const res = readTestsResult.tests
+    if (de.name == EXPECTED_DIR_NAME || /\.swp$/.exec(de.name)) return cb()
 
-function processDirEntry(de, out) {
-  const expected = out.expected
-  const res = out.tests
-  if (de.name == EXPECTED_DIR_NAME) return
-
-  const ext = path.extname(de.name)
-  const nameNoExt = path.basename(de.name, ext)
-  if (de.path == EXPECTED_DIR) {
-    return
-    // fs.readFile(path.join(de.path, de.name), (err, res) => {
-    // })
-  }
-  const splittedPath = de.path.split(path.sep)
-  const depth = splittedPath.length
-  if (depth == 1) {
-    res[de.name] = { items: [] }
-  } else if (depth == 2) {
-    const test = {}
-    test.ext = ext
-    test.nameNoExt = nameNoExt 
-    test.name = de.name
-    test.parentDir = splittedPath.at(-1)
-    test.path = path.join(PROJECT_DIR, de.path)
-    test.fullname = path.join(test.path, de.name)
-    test.title = test.nameNoExt
-    test.compilerTitle = test.parentDir
-    test.outputName = test.title + OUT_EXT
-    test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName) 
-    test.expectedFullname = path.join(EXPECTED_DIR, test.outputName)
-    const compiler = COMPILERS[test.compilerTitle]
-    test.runCmd = [compiler.cmd, compiler.cmdArgs, `"${test.fullname}"`].filter(x => x).join(' ')
-    res[test.compilerTitle].items.push(test)
-  }
-}
-
-function optionDefinitions() {
-  return [
-    { name: 'help', alias: 'h', type: Boolean, description: 'show this help' },
-    { name: 'list', alias: 'l', type: Boolean, description: 'list test and expected files' },
-    { name: 'config', alias: 'c', type: Boolean, description: 'show compilers configuration' },
-    { name: 'parallelCompilers', alias: 'p', type: Number, defaultValue: 1, description: 'number of parallel compiler <types>' },
-    { name: 'parallelTests', alias: 't', type: Number, defaultValue: 1, description: 'number of parallel test by single compiler <type>' },
-    { name: 'run', alias: 'r', type: Boolean, description: 'run tests' },
-    // { name: 'src', type: String, multiple: true, defaultOption: true },
-  ]
-}
-
-function validateCmdOptions() {
-  if (!(cmdOptions.help || cmdOptions.list || cmdOptions.config ||
-    cmdOptions.compilerVersion || cmdOptions.run))
-    return false
-  return true
-}
-
-function tryCmdOptions() {
-  try {
-    return commandLineArgs(optionDefinitions())
-  } catch (e) {
-    console.error(e.message)
-    console.error("Try -h")
-    process.exit(1)
-  }
-}
-
-function usage() {
-  const usage = commandLineUsage([
-    {
-      header: 'Learn Languages Project',
-      content: 'Make different languages inputs get same result.'
-    },
-    {
-      header: 'Options',
-      optionList: optionDefinitions()
-    },
-    {
-      content: 'Project home: {underline https://gitflic.ru/project/evgeen/learn_languages}'
+    const ext = path.extname(de.name)
+    const nameNoExt = path.basename(de.name, ext)
+    const title = nameNoExt
+    if (de.path == EXPECTED_DIR) {
+      fs.readFile(path.join(EXPECTED_DIR, nameNoExt + OUT_EXT), (err, res) => {
+        if (err) return cb(err)
+        expected[title] = res.toString('utf8')
+        cb()
+      })
+      return
     }
-  ])
-  console.log(usage)
+    const splittedPath = de.path.split(path.sep)
+    const depth = splittedPath.length
+    if (depth == 1) {
+      res[de.name] = { items: [] }
+    } else if (depth == 2) {
+      const test = { ext, nameNoExt, title }
+      test.name = de.name
+      test.parentDir = splittedPath.at(-1)
+      test.path = path.join(PROJECT_DIR, de.path)
+      test.fullname = path.join(test.path, de.name)
+      test.compilerTitle = test.parentDir
+      test.outputName = test.title + OUT_EXT
+      test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName) 
+      test.expectedFullname = path.join(EXPECTED_DIR, test.outputName)
+      const compiler = COMPILERS[test.compilerTitle]
+      test.runCmd = [compiler.cmd, compiler.cmdArgs, `"${test.fullname}"`].filter(x => x).join(' ')
+      res[test.compilerTitle].items.push(test)
+    }
+    return cb()
+  }
 }
+
 
 function runTests(cb) {
   fs.ensureDirSync(OUT_DIR);
@@ -181,7 +132,7 @@ function runTests(cb) {
 }
 
 function runSingleTest(item, cb) {
-  if (item.compilerTitle != 'bash') return setImmediate(cb)
+  // if (item.compilerTitle != 'bash') return setImmediate(cb)
   item.runCmd = item.runCmd.replace(/\\/g, '/')
   child_process.exec(item.runCmd, { encoding: 'buffer' }, (err, stdout, stderr) => {
     if (err) {
@@ -191,7 +142,22 @@ function runSingleTest(item, cb) {
       return cb(stderr.toString('utf8'))
     }
     item.resultStdout = stdout
-    fs.writeFile(item.outputFullname, stdout, cb)
+    const pad = [7, 10]
+    if (stdout == EXPECTED[item.title]) {
+      console.log('%s %s passed', item.compilerTitle.padEnd(pad[0]), item.title.padStart(pad[1]))
+      cb()
+    } else {
+      console.log(
+        '%s %s FAILED (see "%s")',
+        item.compilerTitle.padEnd(pad[0]),
+        item.title.padStart(pad[1]),
+        item.outputFullname
+      )
+      fs.writeFile(item.outputFullname, stdout, (err, res) => {
+        if (err) return cb(err)
+        cb()
+      })
+    }
   }) 
 }
 
