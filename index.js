@@ -10,25 +10,14 @@ const commandLineArgs = require('command-line-args')
 const commandLineUsage = require('command-line-usage')
 
 const BASH='c:/cygwin64/bin/bash.exe'
-const BASE_DIR = '.'
-const TESTS_DIR_NAME = 'test'
+const PROJECT_DIR = '.'
+const TESTS_DIR_NAME = 'tests'
+const TESTS_DIR = path.join(PROJECT_DIR, TESTS_DIR_NAME)
 const EXPECTED_DIR_NAME = '_expected'
-const EXPECTED_DIR = path.join(TESTS_DIR_NAME, EXPECTED_DIR_NAME)
-const ACTUAL_DIR_NAME = '_actual'
-const ACTUAL_DIR = path.join(TESTS_DIR_NAME, ACTUAL_DIR_NAME)
-
-/*
-  Definitions:
-
-  COMPILERS key - compiler/interpretator name ("bash", "gawk", "gcc", "nodejs", ...)
-  COMPILERS.cmd - command to run compiler (must be `basename actualCompilers.path`)
-  COMPILERS.cmdArgs - arguments for compiler which is needed to build result from input
-  COMPILERS.versionArgs - arguments for compiler to get compiler version
-  COMPILERS.versionPattern - regexp pattern to extract version number from compiler output
-
-  actualCompilers.fullpath - path to compiler as returned by "type" command
-  actualCompilers.version - version of compiler returned by "type" command (so found with PATH env variable)
-*/
+const EXPECTED_DIR = path.join(TESTS_DIR, EXPECTED_DIR_NAME)
+const OUT_EXT = '.out'
+const OUT_DIR_NAME = 'output'
+const OUT_DIR = path.join(PROJECT_DIR, OUT_DIR_NAME)
 
 const cmdOptions = tryCmdOptions()
 if (cmdOptions.help || !validateCmdOptions()) {
@@ -39,54 +28,45 @@ if (cmdOptions.help || !validateCmdOptions()) {
 const COMPILERS = {
   bash: {
     cmd: "bash",
-    cmdArgs: "-i",
-    versionArgs: "--version",
-    versionPattern: /(?<=GNU bash, version )[\d.]+/,
+    cmdArgs: "",
+    title: "bash",
   },
   gawk: {
     cmd: "gawk",
     cmdArgs: "-f",
-    versionArgs: "--version",
-    versionPattern: /(?<=GNU Awk )[\d.]+/,
+    title: "gawk",
   },
   nodejs: {
     cmd: "node",
     cmdArgs: "",
-    versionArgs: "--version",
-    versionPattern: /(?<=v)[\d.]+/,
+    title: "nodejs"
   },
 }
 
-const actualCompilers = {}
-const tests = {}
-const expectedFiles = {}
+const TESTS = {}
 
 async.series([
-  init,
-  getVersionsAndPaths,
+  readTests
 ], (err, res) => {
   if (err)
     return console.error(err)
-  Object.assign(actualCompilers, res[1])
-  Object.assign(tests, res[0].t)
-  Object.assign(expectedFiles, res[0].e)
+  Object.assign(TESTS, res[0].tests)
   if (cmdOptions.config)
     pretty(COMPILERS)
-  if (cmdOptions.compilerVersion)
-    pretty(actualCompilers)
   if (cmdOptions.list) {
-    pretty(tests)
-    pretty(expectedFiles)
-    // listTestNames()
+    pretty(TESTS)
   }
   if (cmdOptions.run)
     runTests((err, res) => {
-      console.log('runTests finished', err, res)
+      if (err)
+        console.error('runTests error: %j', err)
+      if (res)
+        console.log('runTetss res: %j', res)
     })
 })
 
-function init(cb) {
-  const res = { t: {}, e: {} }
+function readTests(cb) {
+  const result = { tests: {} }
   let sortFn = (a, b) => {
     if (a.path > b.path) return 1
     else if (a.path < b.path) return -1
@@ -97,75 +77,44 @@ function init(cb) {
     if (err)
       return console.error(err)
     list.sort(sortFn)
-      .forEach(de => processDirEntry(de, res))
-    cb(null, res)
+      .forEach(de => processDirEntry(de, result))
+    cb(null, result)
   })
 }
 
-function processDirEntry(de, res) {
-  if (de.isDirectory() && de.name == EXPECTED_DIR_NAME || de.name == ACTUAL_DIR_NAME)
-    return
-  const re = /^([^_]+)_?([\d.]+)*$/
-  if (de.name == EXPECTED_DIR_NAME && de.path == TESTS_DIR_NAME || de.path == EXPECTED_DIR) {
-    let testname = path.basename(de.name, '.out')
-    res.e[testname] = de.name
-  } else if (de.isDirectory() && de.path == TESTS_DIR_NAME) {
-    let m = de.name.match(re)
-    assert(Array.isArray(m))
-    let compilerKey = m[1]
-    let version = m[2]
-    if (!res.t[compilerKey])
-      res.t[compilerKey] = {
-        version,
-        path: path.join(de.path, de.name),  // TODO check del path?
-        nameVersion: de.name,
-        items: [],
-      }
-  } else if (de.isFile()) {
-    let sp = de.path.split(path.sep)
-    assert(sp.length == 2)
-    const m = sp[1].match(re)
-    let compilerKey = m[1]
-    const testname = de.name.replace(/\..{1,3}$/, '')
-    const outfile = path.join(ACTUAL_DIR, sp[1], testname + '.out')
-    res.t[compilerKey].items.push({
-      testfile: de.name,
-      testname, 
-      outfile 
-    })
-  }
-}
+function processDirEntry(de, out) {
+  const expected = out.expected
+  const res = out.tests
+  if (de.name == EXPECTED_DIR_NAME) return
 
-function getVersionsAndPaths(cb) {
-  let result = {}
-  let fn = (compilerName, pathOrVer, val) => {
-    if (!result[compilerName]) result[compilerName] = {}
-    result[compilerName][pathOrVer] = val
+  const ext = path.extname(de.name)
+  const nameNoExt = path.basename(de.name, ext)
+  if (de.path == EXPECTED_DIR) {
+    return
+    // fs.readFile(path.join(de.path, de.name), (err, res) => {
+    // })
   }
-  let iterateePath = (compiler, compilerName, cb) => {
-    let typeCmd = 'cygpath -w "`type ' + compiler.cmd + ' | grep -o \'\/.*\'`"'
-    child_process.exec(typeCmd, { shell: BASH }, (err, stdout, stderr) => {
-      if (err || stderr)
-        return cb(util.format("err: %s, stderr: %s", err, stderr))
-      fn(compilerName, 'fullpath', stdout.trim())
-      cb()
-    })
+  const splittedPath = de.path.split(path.sep)
+  const depth = splittedPath.length
+  if (depth == 1) {
+    res[de.name] = { items: [] }
+  } else if (depth == 2) {
+    const test = {}
+    test.ext = ext
+    test.nameNoExt = nameNoExt 
+    test.name = de.name
+    test.parentDir = splittedPath.at(-1)
+    test.path = path.join(PROJECT_DIR, de.path)
+    test.fullname = path.join(test.path, de.name)
+    test.title = test.nameNoExt
+    test.compilerTitle = test.parentDir
+    test.outputName = test.title + OUT_EXT
+    test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName) 
+    test.expectedFullname = path.join(EXPECTED_DIR, test.outputName)
+    const compiler = COMPILERS[test.compilerTitle]
+    test.runCmd = [compiler.cmd, compiler.cmdArgs, `"${test.fullname}"`].filter(x => x).join(' ')
+    res[test.compilerTitle].items.push(test)
   }
-  let iterateeVersion = (compiler, compilerName, cb) => {
-    child_process.exec(compiler.cmd + ' ' + compiler.versionArgs, {}, (err, stdout, stderr) => {
-      if (err || stderr)
-        return cb("err: %s, stderr: %s", err, stderr)
-      let m = compiler.versionPattern.exec(stdout)
-      assert(Array.isArray(m), util.format("stdout: %s, pattern: %s", stdout, compiler.versionPattern))
-      assert(m[0])
-      fn(compilerName, 'ver', m[0])
-      cb()
-    })
-  }
-  async.parallel([
-    cb => async.mapValues(COMPILERS, iterateePath, cb),
-    cb => async.mapValues(COMPILERS, iterateeVersion, cb),
-  ], err => cb(err, result)) 
 }
 
 function optionDefinitions() {
@@ -173,7 +122,6 @@ function optionDefinitions() {
     { name: 'help', alias: 'h', type: Boolean, description: 'show this help' },
     { name: 'list', alias: 'l', type: Boolean, description: 'list test and expected files' },
     { name: 'config', alias: 'c', type: Boolean, description: 'show compilers configuration' },
-    { name: 'compilerVersion', alias: 'V', type: Boolean, description: 'show versions of compiler found in system' },
     { name: 'parallelCompilers', alias: 'p', type: Number, defaultValue: 1, description: 'number of parallel compiler <types>' },
     { name: 'parallelTests', alias: 't', type: Number, defaultValue: 1, description: 'number of parallel test by single compiler <type>' },
     { name: 'run', alias: 'r', type: Boolean, description: 'run tests' },
@@ -215,46 +163,35 @@ function usage() {
   console.log(usage)
 }
 
-function listTestNames() {
-  console.log("%s", EXPECTED_DIR)
-  console.log('%j', expectedFiles)
-  Object.keys(expectedFiles).forEach(res => {
-    console.log("  %s", expectedFiles[res])
-  })
-  console.log("")
-  Object.keys(tests).sort().forEach(lang => {
-    console.log(tests[lang].path)
-    console.log('%j',tests[lang])
-    tests[lang].items.forEach(i => console.log("  %s", i))
-  })
-}
-
 function runTests(cb) {
-  fs.ensureDirSync(ACTUAL_DIR);
-  console.log("start runTest", cmdOptions.parallelTests, cmdOptions.parallelCompilers)
-  const iterateeCompiler = (test, compilerName, cb) => {
-    fs.ensureDirSync(path.join(ACTUAL_DIR, test.nameVersion))
-    const iterateeTest = (item, i, cb) => {
-      runSingleTest(compilerName, item, cb)
-    }
-    async.eachOfLimit(tests[compilerName].items, cmdOptions.parallelTests, iterateeTest, cb)
+  fs.ensureDirSync(OUT_DIR);
+  console.log("start runTest",
+    cmdOptions.parallelTests,
+    cmdOptions.parallelCompilers
+  )
+  const iterateeCompiler = (compilerTest, compilerTitle, cb) => {
+    fs.ensureDirSync(path.join(OUT_DIR, compilerTitle))
+    async.eachLimit(
+      compilerTest.items,
+      cmdOptions.parallelTests,
+      runSingleTest,
+    cb)
   }
-  async.eachOfLimit(tests, cmdOptions.parallelCompilers, iterateeCompiler, cb)
+  async.eachOfLimit(TESTS, cmdOptions.parallelCompilers, iterateeCompiler, cb)
 }
 
-function runSingleTest(compilerName, test, cb) {
-  const cmd = util.format('"%s" %s %s',
-    actualCompilers[compilerName].fullpath,
-    COMPILERS[compilerName].cmdArgs,
-    path.join(TESTS_DIR_NAME, test.testfile)
-  )
-  console.log(cmd)
-  child_process.exec(cmd, { encoding: 'buffer' }, (err, stdout, stderr) => {
-    if (err)
+function runSingleTest(item, cb) {
+  if (item.compilerTitle != 'bash') return setImmediate(cb)
+  item.runCmd = item.runCmd.replace(/\\/g, '/')
+  child_process.exec(item.runCmd, { encoding: 'buffer' }, (err, stdout, stderr) => {
+    if (err) {
       return cb(err)
-    if (stderr)
+    }
+    if (stderr.length) {
       return cb(stderr.toString('utf8'))
-    fs.writeFile(test.outfile, stdout, cd)
+    }
+    item.resultStdout = stdout
+    fs.writeFile(item.outputFullname, stdout, cb)
   }) 
 }
 

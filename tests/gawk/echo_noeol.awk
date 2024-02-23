@@ -1,0 +1,1 @@
+BEGIN { printf 1 }
