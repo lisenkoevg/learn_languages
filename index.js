@@ -180,6 +180,7 @@ function runSingleTest(item, cb) {
   const opt = { cwd: item.path, encoding: 'buffer' }
   const child = child_process.exec(item.runCmd, opt, (err, stdout, stderr) => {
     if (err && !item.outputRc) {
+      if (stderr) console.log(stderr.toString('utf8'))
       return cb(err)
     }
     if (stderr.length && !item.outputStderr) {
@@ -199,15 +200,18 @@ function runSingleTest(item, cb) {
     if (item.compilerTitle == 'cmd') {
       result = Buffer.from(result.toString('utf8').replace(/\r\n/g, '\n'))
     }
-    const pad = [7, 10]
+    const pad = [7, 15]
     if (result == EXPECTED[item.title]) {
-      console.log('%s %s passed', item.compilerTitle.padEnd(pad[0]), item.title.padStart(pad[1]))
+      console.log('%s %s passed',
+        item.compilerTitle.padEnd(pad[0]),
+        item.title.padEnd(pad[1])
+      )
       fs.unlink(item.outputFullname, err => cb())
     } else {
       console.log(
         '%s %s FAILED (see "%s")',
         item.compilerTitle.padEnd(pad[0]),
-        item.title.padStart(pad[1]),
+        item.title.padEnd(pad[1]),
         item.outputFullname
       )
       fs.writeFile(item.outputFullname, result, (err, res) => {
