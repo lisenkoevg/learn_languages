@@ -1,5 +1,6 @@
 #include <stdio.h>
 
-void main() {
+int main() {
   printf("%s", "1");
+  return 0;
 }
