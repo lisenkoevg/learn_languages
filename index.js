@@ -79,6 +79,10 @@ function readTests(cb) {
       return console.error(err)
     async.eachSeries(list.sort(sortFn), processDirEntry, err => {
       if (err) return cb(err)
+      Object.keys(readTestsResult).forEach(k => {
+        if (!readTestsResult[k].items.length)
+          delete readTestsResult[k]
+      })
       cb(null, readTestsResult)
     })
   })
@@ -97,20 +101,23 @@ function readTests(cb) {
       readTestsResult[de.name] = { items: [] }
       return cb()
     } else if (depth == 2) {
-      if (!cmdOptions.it.test(title))
-        return cb()
-      if (cmdOptions.et && cmdOptions.et.test(title))
-        return cb()
       const test = { ext, nameNoExt, title }
-      test.alternativeFor = test.title.replace(/\.\d+$/, '')
-      if (test.title == test.alternativeFor)
-        delete test.alternativeFor
+      const alternativeForTitle = test.title.replace(/\.\d+$/, '')
+      if (test.title != alternativeForTitle) {
+        test.alternativeForTitle = alternativeForTitle
+        test.alternativeForName = alternativeForTitle + ext
+      }
+      const tmpTitle = test.alternativeForTitle || test.title
+      if (!cmdOptions.it.test(tmpTitle))
+        return cb()
+      if (cmdOptions.et && cmdOptions.et.test(tmpTitle))
+        return cb()
       test.name = de.name
       if (test.name.indexOf('.') == 0)
         return cb()
       test.parentDir = splittedPath.at(1)
       test.path = path.join(PROJECT_DIR, de.path)
-      test.fullname = path.join(test.path, de.name)
+      test.fullname = path.join(test.path, test.name)
       test.compilerTitle = test.parentDir
       if (!cmdOptions.ic.test(test.compilerTitle))
         return cb()
@@ -121,21 +128,26 @@ function readTests(cb) {
       const compiler = COMPILERS[test.compilerTitle]
       if (ext != compiler.ext)
         return cb()
-      test.multiFile = de.isDirectory()
-      if (test.multiFile) {
-        test.fullname = path.join(test.fullname, test.name)
+      test.multiFileTest = de.isDirectory()
+      let tmpName
+      if (test.multiFileTest) {
+        tmpName = test.alternativeForName || test.name 
+        test.fullname = path.join(test.fullname, tmpName)
         test.path = path.join(test.path, test.name)
+      } else {
+        tmpName = test.name 
       }
       test.runCmd = [
         compiler.cmd,
-        compiler.cmdArgs.replace(/FILE/g, test.name),
-        !compiler.cmdArgs.match(/FILE/) ? `"${test.name}"` : ''
-      ].filter(x => x).join(' ')
+        compiler.cmdArgs.replace(/FILE/g, tmpName),
+        !compiler.cmdArgs.match(/FILE/) ? `"${tmpName}"` : ''
+      ]
       if (compiler.unlink)
         test.unlink = path.join(
           test.path,
-          compiler.unlink.replace(/FILE/g, test.name)
+          compiler.unlink.replace(/FILE/g, tmpName)
         )
+      test.runCmd = test.runCmd.filter(x => x).join(' ')
       analyseTestFileHeader(test.fullname, compiler.lineComment, (err, r) => {
         if (err) return cb(err.message + ' ' + test.fullname)
         const { outputRc, outputStderr } = r
@@ -176,7 +188,9 @@ function readExpected(cb) {
     let filesObj = filesArray.reduce((acc, file) => {
       if (path.extname(file) != OUT_EXT)
         return acc
-      if (cmdOptions.it.test(file) && !(cmdOptions.et && cmdOptions.et.test(file))) {
+      const nameNoExt = path.basename(file, OUT_EXT)
+      if (cmdOptions.it.test(nameNoExt) &&
+          !(cmdOptions.et && cmdOptions.et.test(nameNoExt))) {
         acc[file.replace(OUT_EXT, '')] = file
       }
       return acc
@@ -210,7 +224,11 @@ function runSingleTest(item, cb) {
   item.runCmd = item.runCmd.replace(/\\/g, '/')
   const opt = { cwd: item.path, encoding: 'buffer' }
   const child = child_process.exec(item.runCmd, opt, (err, stdout, stderr) => {
-    if (item.unlink) fs.unlink(item.unlink, () => {})
+    if (item.unlink) {
+      fs.unlink(item.unlink, err => {
+        if (err) console.error(err)
+      })
+    }
     if (err && !item.outputRc) {
       if (stderr) console.log(stderr.toString('utf8'))
       return cb(err)
@@ -234,7 +252,7 @@ function runSingleTest(item, cb) {
       result = Buffer.from(result.toString('utf8').replace(/\r\n/g, '\n'))
     }
     const pad = [7, 15]
-    if (result == EXPECTED[item.alternativeFor || item.title]) {
+    if (result == EXPECTED[item.alternativeForTitle || item.title]) {
       console.log('%s %s passed',
         item.compilerTitle.padEnd(pad[0]),
         item.title.padEnd(pad[1])

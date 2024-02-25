@@ -13,6 +13,7 @@ function optionDefinitions() {
     { name: 'pc', type: Number, defaultValue: 5, description: 'number of parallel compiler types' },
     { name: 'pt', type: Number, defaultValue: 5, description: 'number of parallel test by single compiler type' },
     { name: 'sequental', alias: 's', type: Boolean, description: 'set to 1 both parallel tests and parallel compilers type' },
+    { name: 'parallel', alias: 'p', type: Boolean, description: 'set to 100 both parallel tests and parallel compilers type' },
     { name: 'run', alias: 'r', type: Boolean, description: 'run tests' },
     { name: 'ic', type: String, defaultValue: '.', description: 'include filter by compiler' },
     { name: 'it', type: String, defaultValue: '.', description: 'include filter by test' },
@@ -27,6 +28,8 @@ function validateCmdOptions() {
     return false
   if (cmdOptions.sequental)
     cmdOptions.pc = cmdOptions.pt = 1
+  if (cmdOptions.parallel)
+    cmdOptions.pc = cmdOptions.pt = 100
   return true
 }
 
