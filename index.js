@@ -42,13 +42,19 @@ async.series([
     return console.error(err)
   Object.assign(TESTS, res[1])
   Object.assign(EXPECTED, res[2])
-  if (cmdOptions.config)
+  if (cmdOptions.config) {
     pretty(COMPILERS)
+    pretty(cmdOptions)
+  }
   if (cmdOptions.list) {
     pretty(TESTS)
     pretty(EXPECTED)
   }
   if (cmdOptions.run) {
+    if (!Object.keys(EXPECTED).length) {
+      console.error('No tests selected')
+      return
+    }
     runTests((err, res) => {
       if (err)
         console.error('runTests error: %j', err)
@@ -84,12 +90,16 @@ function readTests(cb) {
     const splittedPath = de.path.split(path.sep)
     const depth = splittedPath.length
     if (depth == 1) {
-      if (!cmdOptions.fc.test(de.name))
+      if (!cmdOptions.ic.test(de.name))
+        return cb()
+      if (cmdOptions.ec && cmdOptions.ec.test(de.name))
         return cb()
       readTestsResult[de.name] = { items: [] }
       return cb()
     } else if (depth == 2) {
-      if (!cmdOptions.ft.test(title))
+      if (!cmdOptions.it.test(title))
+        return cb()
+      if (cmdOptions.et && cmdOptions.et.test(title))
         return cb()
       const test = { ext, nameNoExt, title }
       test.alternativeFor = test.title.replace(/\.\d+$/, '')
@@ -102,13 +112,20 @@ function readTests(cb) {
       test.path = path.join(PROJECT_DIR, de.path)
       test.fullname = path.join(test.path, de.name)
       test.compilerTitle = test.parentDir
-      if (!cmdOptions.fc.test(test.compilerTitle))
+      if (!cmdOptions.ic.test(test.compilerTitle))
+        return cb()
+      if (cmdOptions.ec && cmdOptions.ec.test(test.compilerTitle))
         return cb()
       test.outputName = test.title + OUT_EXT
       test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName)
       const compiler = COMPILERS[test.compilerTitle]
       if (ext != compiler.ext)
         return cb()
+      test.multiFile = de.isDirectory()
+      if (test.multiFile) {
+        test.fullname = path.join(test.fullname, test.name)
+        test.path = path.join(test.path, test.name)
+      }
       test.runCmd = [
         compiler.cmd,
         compiler.cmdArgs.replace(/FILE/g, test.name),
@@ -120,12 +137,15 @@ function readTests(cb) {
           compiler.unlink.replace(/FILE/g, test.name)
         )
       analyseTestFileHeader(test.fullname, compiler.lineComment, (err, r) => {
+        if (err) return cb(err.message + ' ' + test.fullname)
         const { outputRc, outputStderr } = r
         test.outputRc = outputRc
         test.outputStderr = outputStderr
         readTestsResult[test.compilerTitle].items.push(test)
         return cb()
       })
+    } else if (depth == 3) {
+      return cb()
     }
   }
 
@@ -154,7 +174,9 @@ function readExpected(cb) {
   fs.readdir(EXPECTED_DIR, opt, (err, filesArray) => {
     if (err) return cb(err)
     let filesObj = filesArray.reduce((acc, file) => {
-      if (cmdOptions.ft.test(file)) {
+      if (path.extname(file) != OUT_EXT)
+        return acc
+      if (cmdOptions.it.test(file) && !(cmdOptions.et && cmdOptions.et.test(file))) {
         acc[file.replace(OUT_EXT, '')] = file
       }
       return acc

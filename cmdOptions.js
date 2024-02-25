@@ -14,8 +14,10 @@ function optionDefinitions() {
     { name: 'pt', type: Number, defaultValue: 5, description: 'number of parallel test by single compiler type' },
     { name: 'sequental', alias: 's', type: Boolean, description: 'set to 1 both parallel tests and parallel compilers type' },
     { name: 'run', alias: 'r', type: Boolean, description: 'run tests' },
-    { name: 'fc', type: String, defaultValue: '.', description: 'filter by compiler' },
-    { name: 'ft', type: String, defaultValue: '.', description: 'filter by test' },
+    { name: 'ic', type: String, defaultValue: '.', description: 'include filter by compiler' },
+    { name: 'it', type: String, defaultValue: '.', description: 'include filter by test' },
+    { name: 'ec', type: String, defaultValue: '', description: 'exclude filter by compiler' },
+    { name: 'et', type: String, defaultValue: '', description: 'exclude filter by test' },
   ]
 }
 
@@ -37,8 +39,10 @@ function tryCmdOptions() {
     console.error("Try -h")
     process.exit(1)
   }
-  args.ft = new RegExp(args.ft, 'i')
-  args.fc = new RegExp(args.fc, 'i')
+  args.it = new RegExp(args.it, 'i')
+  args.ic = new RegExp(args.ic, 'i')
+  args.et = args.et && new RegExp(args.et, 'i')
+  args.ec = args.ec && new RegExp(args.ec, 'i')
   return args
 }
 
