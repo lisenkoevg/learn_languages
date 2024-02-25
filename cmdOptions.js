@@ -1,4 +1,5 @@
 'use strict'
+
 const commandLineArgs = require('command-line-args')
 const commandLineUsage = require('command-line-usage')
 
@@ -9,9 +10,9 @@ function optionDefinitions() {
     { name: 'help', alias: 'h', type: Boolean, description: 'show this help' },
     { name: 'list', alias: 'l', type: Boolean, description: 'list test and expected files' },
     { name: 'config', alias: 'c', type: Boolean, description: 'show compilers configuration' },
-    { name: 'parallelCompilers', alias: 'p', type: Number, defaultValue: 5, description: 'number of parallel compiler <types>' },
-    { name: 'parallelTests', alias: 't', type: Number, defaultValue: 5, description: 'number of parallel test by single compiler <type>' },
-    { name: 'sequental', alias: 's', type: Boolean, description: 'set to 1 both parallel tests and parallel compilers <type>' },
+    { name: 'pc', type: Number, defaultValue: 5, description: 'number of parallel compiler types' },
+    { name: 'pt', type: Number, defaultValue: 5, description: 'number of parallel test by single compiler type' },
+    { name: 'sequental', alias: 's', type: Boolean, description: 'set to 1 both parallel tests and parallel compilers type' },
     { name: 'run', alias: 'r', type: Boolean, description: 'run tests' },
     { name: 'fc', type: String, defaultValue: '.', description: 'filter by compiler' },
     { name: 'ft', type: String, defaultValue: '.', description: 'filter by test' },
@@ -23,7 +24,7 @@ function validateCmdOptions() {
     cmdOptions.compilerVersion || cmdOptions.run))
     return false
   if (cmdOptions.sequental)
-    cmdOptions.parallelCompilers = cmdOptions.parallelTests = 1
+    cmdOptions.pc = cmdOptions.pt = 1
   return true
 }
 

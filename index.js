@@ -29,20 +29,19 @@ if (cmdOptions.help || !validateCmdOptions()) {
   usage()
   process.exit(1)
 }
-const COMPILERS = require('./compilers')
+const { COMPILERS, trySaveCompilersVersion } = require('./compilers')
 const TESTS = {}
 const EXPECTED = {}
 
-console.time('readTests')
 async.series([
+  trySaveCompilersVersion,
   readTests,
   readExpected,
 ], (err, res) => {
   if (err)
     return console.error(err)
-  // console.timeEnd('readTests')
-  Object.assign(TESTS, res[0])
-  Object.assign(EXPECTED, res[1])
+  Object.assign(TESTS, res[1])
+  Object.assign(EXPECTED, res[2])
   if (cmdOptions.config)
     pretty(COMPILERS)
   if (cmdOptions.list) {
@@ -50,7 +49,6 @@ async.series([
     pretty(EXPECTED)
   }
   if (cmdOptions.run) {
-    console.time('runTests')
     runTests((err, res) => {
       if (err)
         console.error('runTests error: %j', err)
@@ -80,7 +78,6 @@ function readTests(cb) {
   })
 
   function processDirEntry(de, cb) {
-    if (/\.swp$/.test(de.name)) return cb()
     const ext = path.extname(de.name)
     const nameNoExt = path.basename(de.name, ext)
     const title = nameNoExt
@@ -95,6 +92,9 @@ function readTests(cb) {
       if (!cmdOptions.ft.test(title))
         return cb()
       const test = { ext, nameNoExt, title }
+      test.alternativeFor = test.title.replace(/\.\d+$/, '')
+      if (test.title == test.alternativeFor)
+        delete test.alternativeFor
       test.name = de.name
       if (test.name.indexOf('.') == 0)
         return cb()
@@ -108,12 +108,17 @@ function readTests(cb) {
       test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName)
       const compiler = COMPILERS[test.compilerTitle]
       if (ext != compiler.ext)
-          return cb()
+        return cb()
       test.runCmd = [
         compiler.cmd,
         compiler.cmdArgs.replace(/FILE/g, test.name),
         !compiler.cmdArgs.match(/FILE/) ? `"${test.name}"` : ''
       ].filter(x => x).join(' ')
+      if (compiler.unlink)
+        test.unlink = path.join(
+          test.path,
+          compiler.unlink.replace(/FILE/g, test.name)
+        )
       analyseTestFileHeader(test.fullname, compiler.lineComment, (err, r) => {
         const { outputRc, outputStderr } = r
         test.outputRc = outputRc
@@ -144,7 +149,7 @@ function readTests(cb) {
 }
 
 function readExpected(cb) {
-  let limitParallel = 10
+  let limitExpected = 10
   const opt = { recursive: false, withFileTypes: false }
   fs.readdir(EXPECTED_DIR, opt, (err, filesArray) => {
     if (err) return cb(err)
@@ -158,37 +163,39 @@ function readExpected(cb) {
     let iteratee = (file, t, cb) => {
       fs.readFile(path.join(EXPECTED_DIR, file), { encoding: 'utf8' }, cb)
     }
-    async.mapValuesLimit(filesObj, limitParallel, iteratee, cb)
+    async.mapValuesLimit(filesObj, limitExpected, iteratee, cb)
   })
 }
 
 function runTests(cb) {
   fs.ensureDirSync(OUT_DIR);
-  console.log("start runTest",
-    cmdOptions.parallelTests,
-    cmdOptions.parallelCompilers
+  console.log("start runTest, parallel compilers/test: %s/%s",
+    cmdOptions.pc,
+    cmdOptions.pt
   )
   const iterateeCompiler = (compilerTest, compilerTitle, cb) => {
     fs.ensureDirSync(path.join(OUT_DIR, compilerTitle))
     async.eachLimit(
       compilerTest.items,
-      cmdOptions.parallelTests,
+      cmdOptions.pt,
       runSingleTest,
     cb)
   }
-  async.eachOfLimit(TESTS, cmdOptions.parallelCompilers, iterateeCompiler, cb)
+  async.eachOfLimit(TESTS, cmdOptions.pc, iterateeCompiler, cb)
 }
 
 function runSingleTest(item, cb) {
   item.runCmd = item.runCmd.replace(/\\/g, '/')
   const opt = { cwd: item.path, encoding: 'buffer' }
   const child = child_process.exec(item.runCmd, opt, (err, stdout, stderr) => {
+    if (item.unlink) fs.unlink(item.unlink, () => {})
     if (err && !item.outputRc) {
       if (stderr) console.log(stderr.toString('utf8'))
       return cb(err)
     }
     if (stderr.length && !item.outputStderr) {
-      return cb(stderr.toString('utf8'))
+      console.error(stderr.toString('utf8'))
+      return cb(true)
     }
     let result = stdout
     if (item.outputStderr) {
@@ -205,7 +212,7 @@ function runSingleTest(item, cb) {
       result = Buffer.from(result.toString('utf8').replace(/\r\n/g, '\n'))
     }
     const pad = [7, 15]
-    if (result == EXPECTED[item.title]) {
+    if (result == EXPECTED[item.alternativeFor || item.title]) {
       console.log('%s %s passed',
         item.compilerTitle.padEnd(pad[0]),
         item.title.padEnd(pad[1])

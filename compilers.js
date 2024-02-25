@@ -38,7 +38,8 @@ const COMPILERS = {
   },
   gcc: {
     cmd: "gcc",
-    cmdArgs: '"FILE" -o "FILE.exe" & "FILE.exe" & rm "FILE.exe"',
+    cmdArgs: '"FILE" -Werror -Wextra -Wall -Wpedantic -o "FILE.exe" && "FILE.exe"',
+    unlink: 'FILE.exe',
     title: "gcc",
     lineComment: "//",
     ext: '.c',
@@ -53,15 +54,21 @@ const COMPILERS = {
     versionCmd: '/c ver',
     versionPattern: /(?<=Microsoft Windows \[Version )[\d.]+/,
   },
+  python: {
+    cmd: "python3.9",
+    cmdArgs: '',
+    title: "python",
+    lineComment: "#",
+    ext: '.py',
+    versionPattern: /(?<=Python )[\d.]+/,
+  },
 }
 const defaultVersionCmd = '--version'
 for (v in COMPILERS) {
   COMPILERS[v].versionCmd = COMPILERS[v].versionCmd || defaultVersionCmd
 }
 
-getCompilersVersion()
-
-function getCompilersVersion() {
+function trySaveCompilersVersion(cb) {
   const iteratee = (compiler, title, cb) => {
     const cmd = `${compiler.cmd} ${compiler.versionCmd}`
     exec(cmd, { encoding: 'utf8' }, (err, stdout, stderr) => {
@@ -80,13 +87,12 @@ function getCompilersVersion() {
     const result = stringify(res, { space: 2 })
     fs.readFile('ver.json', { encoding: 'utf8' }, (err, res) => {
       if (err && err.code != 'ENOENT')
-        return console.error(err)
+        return cb(err)
       if (res != result)
-        fs.writeFile('ver.json', result, err => {
-          if (err)
-            console.error(err)
-        })
+        fs.writeFile('ver.json', result, cb)
+      else
+        cb()
     })
   })
 }
-module.exports = COMPILERS
+module.exports = { COMPILERS, trySaveCompilersVersion }
