@@ -96,7 +96,9 @@ function readTests(cb) {
         return cb()
       const test = { ext, nameNoExt, title }
       test.name = de.name
-      test.parentDir = splittedPath.at(-1)
+      if (test.name.indexOf('.') == 0)
+        return cb()
+      test.parentDir = splittedPath.at(1)
       test.path = path.join(PROJECT_DIR, de.path)
       test.fullname = path.join(test.path, de.name)
       test.compilerTitle = test.parentDir
@@ -105,6 +107,8 @@ function readTests(cb) {
       test.outputName = test.title + OUT_EXT
       test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName)
       const compiler = COMPILERS[test.compilerTitle]
+      if (ext != compiler.ext)
+          return cb()
       test.runCmd = [
         compiler.cmd,
         compiler.cmdArgs.replace(/FILE/g, test.name),
