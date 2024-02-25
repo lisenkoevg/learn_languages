@@ -62,6 +62,14 @@ const COMPILERS = {
     ext: '.py',
     versionPattern: /(?<=Python )[\d.]+/,
   },
+  ruby: {
+    cmd: "ruby",
+    cmdArgs: '',
+    title: "ruby",
+    lineComment: "#",
+    ext: '.rb',
+    versionPattern: /(?<=ruby )[\d.]+/,
+  },
 }
 const defaultVersionCmd = '--version'
 for (v in COMPILERS) {
