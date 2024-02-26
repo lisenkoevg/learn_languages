@@ -135,7 +135,7 @@ function processDirEntry(de, cb) {
       return cb()
     readTestsResult[de.name] = { items: [] }
     return cb()
-  } else if (depth == 2) {
+  } else if (depth >= 2) {
     const dirEntryLevelResult = processDirEntryLevel(de)
     if (!dirEntryLevelResult)
       return cb()
@@ -150,13 +150,6 @@ function processDirEntry(de, cb) {
       readTestsResult[test.compilerTitle].items.push(test)
       return cb()
     })
-  } else if (depth == 3) {
-    const dirEntryLevelResult = processDirEntryLevel(de)
-    if (dirEntryLevelResult) {
-      const { test } = dirEntryLevelResult
-      // pretty(test, 'depth=3 test')
-    }
-    return cb()
   }
 }
 
@@ -165,12 +158,18 @@ function processDirEntryLevel(de) {
     .filter(x => de.path.indexOf(x) == 0)
     .length
   if (insideSkipDir) {
-    console.log('skipDir %s', path.join(de.path, de.name))
     return
   }
   const splittedPath = de.path.split(path.sep)
   const depth = splittedPath.length
   const ext = path.extname(de.name)
+  if (/^\.\d+$/.test(ext)) {
+    console.error(
+      'Incorrect try to use tests group (%s) as multifile alternative test.',
+      path.join(de.path, de.name)
+    )
+    process.exit(1)
+  }
   const nameNoExt = path.basename(de.name, ext)
   const title = nameNoExt
   const test = { ext, nameNoExt, title, depth }
@@ -197,6 +196,7 @@ function processDirEntryLevel(de) {
   }
   test.parentDir = splittedPath.at(1)
   test.path = path.join(PROJECT_DIR, de.path)
+  test.group = splittedPath.slice(2).join(path.sep)
   test.fullname = path.join(test.path, test.name)
   test.compilerTitle = test.parentDir
   if (!cmdOptions.ic.test(test.compilerTitle))
@@ -204,13 +204,15 @@ function processDirEntryLevel(de) {
   if (cmdOptions.ec && cmdOptions.ec.test(test.compilerTitle))
     return
   test.outputName = test.title + OUT_EXT
-  test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName)
+  test.outputPath = path.join(OUT_DIR_NAME, test.compilerTitle, test.group)
+  test.outputFullname = path.join(test.outputPath, test.outputName)
   const compiler = COMPILERS[test.compilerTitle]
   const multiFileTest = de.isDirectory() && ext == compiler.ext
   if (ext != compiler.ext)
     return
   let tmpName
   if (multiFileTest) {
+    readTests.skipDir.push(path.join(de.path, de.name))
     tmpName = test.alternativeForName || test.name
     test.fullname = path.join(test.fullname, tmpName)
     test.path = path.join(test.path, test.name)
@@ -255,7 +257,7 @@ function readExpected(cb) {
   const selectedTests = Object.keys(tmp).reduce((acc, compilerTitle) => {
     tmp[compilerTitle].items.forEach(x => {
       const tmpTitle = x.alternativeForTitle || x.title
-      acc[tmpTitle] = path.join(x.group, tmpTitle) + OUT_EXT
+      acc[path.join(x.group, tmpTitle)] = path.join(x.group, tmpTitle) + OUT_EXT
     })
     return acc
   }, {})
@@ -314,7 +316,8 @@ function runSingleTest(item, cb) {
       result = Buffer.from(result.toString('utf8').replace(/\r\n/g, '\n'))
     }
     const pad = [7, 15]
-    if (result == EXPECTED[item.alternativeForTitle || item.title]) {
+    const tmpTitle = item.alternativeForTitle || item.title
+    if (result == EXPECTED[path.join(item.group, tmpTitle)]) {
       console.log('%s %s passed',
         item.compilerTitle.padEnd(pad[0]),
         item.title.padEnd(pad[1])
@@ -327,10 +330,10 @@ function runSingleTest(item, cb) {
         item.title.padEnd(pad[1]),
         item.outputFullname
       )
-      fs.writeFile(item.outputFullname, result, (err, res) => {
-        if (err) return cb(err)
-        cb()
-      })
+      async.series([
+        async.apply(fs.ensureDir, item.outputPath),
+        async.apply(fs.writeFile, item.outputFullname, result)
+      ], cb)
     }
   })
 }
