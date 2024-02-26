@@ -44,12 +44,12 @@ async.series([
   Object.assign(TESTS, res[1])
   Object.assign(EXPECTED, res[2])
   if (cmdOptions.config) {
-    pretty(COMPILERS)
-    pretty(cmdOptions)
+    pretty(COMPILERS, 'COMPILERS')
+    pretty(cmdOptions, 'cmdOptions')
   }
   if (cmdOptions.list) {
-    pretty(TESTS)
-    pretty(EXPECTED)
+    pretty(TESTS, 'TESTS')
+    pretty(EXPECTED, 'EXPECTED')
   }
   if (cmdOptions.run) {
     if (!Object.keys(EXPECTED).length) {
@@ -66,8 +66,34 @@ async.series([
   }
 })
 
+/*
+  tests/bash/echo.sh - simple (not multifile) test
+  tests - TESTS_DIR_NAME
+  bash - compilerTitle
+  echo.sh - name
+  echo - nameNoExt = title
+  .sh - ext
+  expected output: expected/bash/echo.out
+
+  tests/bash/echo.N.sh (N = 0, 1, 2, ...) - alternative test for echo.sh test
+  echo - title
+  expected output (as previous): expected/bash/echo.out
+
+  tests/bash/module.sh/ - multifile test, dir must contain same name file - module.sh
+  module - title
+  .sh - ext
+  expected output: expected/bash/module.out
+
+  tests/bash/module.N.sh/ (N = 0, 1, 2, ...) - alternative multifile test, dir must contain file module.sh
+  module - title
+  expected output (as previos): expected/bash/module.out
+
+  tests/bash/dir_with_no_suffix/ - tests group
+*/
+
 function readTests(cb) {
   readTests.result = {}
+  readTests.skipDir = []
   let sortFn = (a, b) => {
     if (a.path > b.path) return 1
     else if (a.path < b.path) return -1
@@ -89,21 +115,18 @@ function readTests(cb) {
   })
 }
 
-// tests/bash/echo.sh - simple (not multifile) test
-// tests - TESTS_DIR_NAME
-// bash - compilerTitle
-// echo.sh - name
-// echo - nameNoExt = title
-// .sh - ext
-
 function processDirEntry(de, cb) {
   const readTestsResult = readTests.result
-  const ext = path.extname(de.name)
-  const nameNoExt = path.basename(de.name, ext)
-  const title = nameNoExt
   const splittedPath = de.path.split(path.sep)
   const depth = splittedPath.length
+
   if (depth == 1) {
+    if (!de.isDirectory())
+      return cb()
+    if (de.name.indexOf('.') == 0) {
+      readTests.skipDir.push(path.join(de.path, de.name))
+      return cb()
+    }
     if (!cmdOptions.ic.test(de.name))
       return cb()
     if (cmdOptions.ec && cmdOptions.ec.test(de.name))
@@ -111,64 +134,99 @@ function processDirEntry(de, cb) {
     readTestsResult[de.name] = { items: [] }
     return cb()
   } else if (depth == 2) {
-    const test = { ext, nameNoExt, title }
-    const alternativeForTitle = test.title.replace(/\.\d+$/, '')
-    if (test.title != alternativeForTitle) {
-      test.alternativeForTitle = alternativeForTitle
-      test.alternativeForName = alternativeForTitle + ext
-    }
-    const tmpTitle = test.alternativeForTitle || test.title
-    if (!cmdOptions.it.test(tmpTitle))
+    const depthLevelResult = processDirEntryLevel(de)
+    if (!depthLevelResult)
       return cb()
-    if (cmdOptions.et && cmdOptions.et.test(tmpTitle))
-      return cb()
-    test.name = de.name
-    if (test.name.indexOf('.') == 0)
-      return cb()
-    test.parentDir = splittedPath.at(1)
-    test.path = path.join(PROJECT_DIR, de.path)
-    test.fullname = path.join(test.path, test.name)
-    test.compilerTitle = test.parentDir
-    if (!cmdOptions.ic.test(test.compilerTitle))
-      return cb()
-    if (cmdOptions.ec && cmdOptions.ec.test(test.compilerTitle))
-      return cb()
-    test.outputName = test.title + OUT_EXT
-    test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName)
-    const compiler = COMPILERS[test.compilerTitle]
-    if (ext != compiler.ext)
-      return cb()
-    test.multiFileTest = de.isDirectory()
-    let tmpName
-    if (test.multiFileTest) {
-      tmpName = test.alternativeForName || test.name
-      test.fullname = path.join(test.fullname, tmpName)
-      test.path = path.join(test.path, test.name)
-    } else {
-      tmpName = test.name
-    }
-    test.runCmd = [
-      compiler.cmd,
-      compiler.cmdArgs.replace(/FILE/g, tmpName),
-      !compiler.cmdArgs.match(/FILE/) ? `"${tmpName}"` : ''
-    ]
-    if (compiler.unlink)
-      test.unlink = path.join(
-        test.path,
-        compiler.unlink.replace(/FILE/g, tmpName)
-      )
-    test.runCmd = test.runCmd.filter(x => x).join(' ')
+    const { test, compiler } = depthLevelResult
     analyseTestFileHeader(test.fullname, compiler.lineComment, (err, r) => {
-      if (err) return cb(err.message + ' ' + test.fullname)
+      if (err) return cb(err.message)
       const { outputRc, outputStderr } = r
-      test.outputRc = outputRc
-      test.outputStderr = outputStderr
+      if (outputRc)
+        test.outputRc = outputRc
+      if (outputStderr)
+        test.outputStderr = outputStderr
       readTestsResult[test.compilerTitle].items.push(test)
       return cb()
     })
   } else if (depth == 3) {
+    const depthLevelResult = processDirEntryLevel(de)
+    if (depthLevelResult) {
+      const { test } = depthLevelResult
+      // pretty(test, 'depth=3 test')
+    }
     return cb()
   }
+}
+
+function processDirEntryLevel(de) {
+  const insideSkipDir = !!readTests.skipDir
+    .filter(x => de.path.indexOf(x) == 0)
+    .length
+  if (insideSkipDir) {
+    console.log('skipDir %s', path.join(de.path, de.name))
+    return
+  }
+  const splittedPath = de.path.split(path.sep)
+  const depth = splittedPath.length
+  const ext = path.extname(de.name)
+  const nameNoExt = path.basename(de.name, ext)
+  const title = nameNoExt
+  const test = { ext, nameNoExt, title, depth }
+  const alternativePattern = new RegExp('\\.\\d+$')
+  if (ext == '' && de.isDirectory() && !alternativePattern.test(test.title)) {
+    const isTestsGroup = true
+    return
+  }
+  const alternativeForTitle = test.title.replace(alternativePattern, '')
+  if (test.title != alternativeForTitle) {
+    test.alternativeForTitle = alternativeForTitle
+    test.alternativeForName = alternativeForTitle + ext
+  }
+  const tmpTitle = test.alternativeForTitle || test.title
+  if (!cmdOptions.it.test(tmpTitle))
+    return
+  if (cmdOptions.et && cmdOptions.et.test(tmpTitle))
+    return
+  test.name = de.name
+  if (test.name.indexOf('.') == 0) {
+    if (de.isDirectory())
+      readTests.skipDir.push(path.join(de.path, de.name))
+    return
+  }
+  test.parentDir = splittedPath.at(1)
+  test.path = path.join(PROJECT_DIR, de.path)
+  test.fullname = path.join(test.path, test.name)
+  test.compilerTitle = test.parentDir
+  if (!cmdOptions.ic.test(test.compilerTitle))
+    return
+  if (cmdOptions.ec && cmdOptions.ec.test(test.compilerTitle))
+    return
+  test.outputName = test.title + OUT_EXT
+  test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName)
+  const compiler = COMPILERS[test.compilerTitle]
+  if (ext != compiler.ext)
+    return
+  const multiFileTest = de.isDirectory() && ext == compiler.ext
+  let tmpName
+  if (multiFileTest) {
+    tmpName = test.alternativeForName || test.name
+    test.fullname = path.join(test.fullname, tmpName)
+    test.path = path.join(test.path, test.name)
+  } else {
+    tmpName = test.name
+  }
+  test.runCmd = [
+    compiler.cmd,
+    compiler.cmdArgs.replace(/FILE/g, tmpName),
+    !compiler.cmdArgs.match(/FILE/) ? `"${tmpName}"` : ''
+  ]
+  test.runCmd = test.runCmd.filter(x => x).join(' ')
+  if (compiler.unlink)
+    test.unlink = path.join(
+      test.path,
+      compiler.unlink.replace(/FILE/g, tmpName)
+    )
+  return { test, compiler }
 }
 
 // search for special tags like #rc, #stderr in first N line comments
@@ -213,7 +271,6 @@ function readExpected(cb) {
       }
       return acc
     }, {})
-
     let iteratee = (file, t, cb) => {
       fs.readFile(path.join(EXPECTED_DIR, file), { encoding: 'utf8' }, cb)
     }
