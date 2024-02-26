@@ -50,6 +50,7 @@ async.series([
   if (cmdOptions.list) {
     pretty(TESTS, 'TESTS')
     pretty(EXPECTED, 'EXPECTED')
+    !cmdOptions.run && report()
   }
   if (cmdOptions.run) {
     if (!Object.keys(EXPECTED).length) {
@@ -62,6 +63,7 @@ async.series([
       if (res)
         console.log('runTests res: %j', res)
       removeEmptyDirs(OUT_DIR)
+      report()
     })
   }
 })
@@ -346,4 +348,12 @@ function runSingleTest(item, cb) {
       })
     }
   })
+}
+
+function report() {
+  const compilers = Object.keys(TESTS)
+  const compilersCount = compilers.length
+  const testsCount = compilers.reduce((acc, key) => acc + TESTS[key].items.length, 0)
+  const expectedCount = Object.keys(EXPECTED).length
+  console.log('Compilers/tests/expected: %s/%s/%s', compilersCount, testsCount, expectedCount)
 }
