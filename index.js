@@ -136,10 +136,10 @@ function processDirEntry(de, cb) {
     readTestsResult[de.name] = { items: [] }
     return cb()
   } else if (depth == 2) {
-    const depthLevelResult = processDirEntryLevel(de)
-    if (!depthLevelResult)
+    const dirEntryLevelResult = processDirEntryLevel(de)
+    if (!dirEntryLevelResult)
       return cb()
-    const { test, compiler } = depthLevelResult
+    const { test, compiler } = dirEntryLevelResult
     analyseTestFileHeader(test.fullname, compiler.lineComment, (err, r) => {
       if (err) return cb(err.message)
       const { outputRc, outputStderr } = r
@@ -151,9 +151,9 @@ function processDirEntry(de, cb) {
       return cb()
     })
   } else if (depth == 3) {
-    const depthLevelResult = processDirEntryLevel(de)
-    if (depthLevelResult) {
-      const { test } = depthLevelResult
+    const dirEntryLevelResult = processDirEntryLevel(de)
+    if (dirEntryLevelResult) {
+      const { test } = dirEntryLevelResult
       // pretty(test, 'depth=3 test')
     }
     return cb()
@@ -206,9 +206,9 @@ function processDirEntryLevel(de) {
   test.outputName = test.title + OUT_EXT
   test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName)
   const compiler = COMPILERS[test.compilerTitle]
+  const multiFileTest = de.isDirectory() && ext == compiler.ext
   if (ext != compiler.ext)
     return
-  const multiFileTest = de.isDirectory() && ext == compiler.ext
   let tmpName
   if (multiFileTest) {
     tmpName = test.alternativeForName || test.name
@@ -254,30 +254,15 @@ function readExpected(cb) {
   const tmp = readTests.result
   const selectedTests = Object.keys(tmp).reduce((acc, compilerTitle) => {
     tmp[compilerTitle].items.forEach(x => {
-      acc.add(x.title)
+      const tmpTitle = x.alternativeForTitle || x.title
+      acc[tmpTitle] = path.join(x.group, tmpTitle) + OUT_EXT
     })
     return acc
-  }, new Set())
-  const opt = { recursive: false, withFileTypes: false }
-  fs.readdir(EXPECTED_DIR, opt, (err, filesArray) => {
-    if (err) return cb(err)
-    let filesObj = filesArray.reduce((acc, file) => {
-      if (path.extname(file) != OUT_EXT)
-        return acc
-      const nameNoExt = path.basename(file, OUT_EXT)
-      if (!selectedTests.has(nameNoExt))
-        return acc
-      if (cmdOptions.it.test(nameNoExt) &&
-          !(cmdOptions.et && cmdOptions.et.test(nameNoExt))) {
-        acc[nameNoExt] = file
-      }
-      return acc
-    }, {})
-    let iteratee = (file, t, cb) => {
-      fs.readFile(path.join(EXPECTED_DIR, file), { encoding: 'utf8' }, cb)
-    }
-    async.mapValuesLimit(filesObj, limitExpected, iteratee, cb)
-  })
+  }, {})
+  let iteratee = (file, title, cb) => {
+    fs.readFile(path.join(EXPECTED_DIR, file), { encoding: 'utf8' }, cb)
+  }
+  async.mapValuesLimit(selectedTests, limitExpected, iteratee, cb)
 }
 
 function runTests(cb) {
