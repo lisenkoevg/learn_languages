@@ -190,7 +190,14 @@ function analyseTestFileHeader(file, lineComment, cb) {
 }
 
 function readExpected(cb) {
-  let limitExpected = 10
+  const limitExpected = 10
+  const tmp = readTests.result
+  const selectedTests = Object.keys(tmp).reduce((acc, compilerTitle) => {
+    tmp[compilerTitle].items.forEach(x => {
+      acc.add(x.title)
+    })
+    return acc
+  }, new Set())
   const opt = { recursive: false, withFileTypes: false }
   fs.readdir(EXPECTED_DIR, opt, (err, filesArray) => {
     if (err) return cb(err)
@@ -198,9 +205,11 @@ function readExpected(cb) {
       if (path.extname(file) != OUT_EXT)
         return acc
       const nameNoExt = path.basename(file, OUT_EXT)
+      if (!selectedTests.has(nameNoExt))
+        return acc
       if (cmdOptions.it.test(nameNoExt) &&
           !(cmdOptions.et && cmdOptions.et.test(nameNoExt))) {
-        acc[file.replace(OUT_EXT, '')] = file
+        acc[nameNoExt] = file
       }
       return acc
     }, {})
