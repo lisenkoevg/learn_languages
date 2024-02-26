@@ -4,12 +4,13 @@ const path = require('path')
 
 module.exports = { pretty, removeEmptyDirs }
 
-function pretty(obj) {
+function pretty(obj, caption) {
   let replacer = (key, val) => {
     if (val instanceof RegExp)
       val = val.toString()
     return val
   }
+  if (caption) console.log(caption + ':')
   console.log(stringify(obj, { space: 2, replacer }))
 }
 
