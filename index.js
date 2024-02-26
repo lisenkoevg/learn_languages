@@ -1,11 +1,11 @@
 'use strict'
 const assert = require('assert')
-const path = require("path")
-const util = require("util")
+const path = require('path')
+const util = require('util')
 const child_process = require('child_process')
-const fs = require("fs-extra")
-const async = require("async")
-const stringify = require("json-stable-stringify")
+const fs = require('fs-extra')
+const async = require('async')
+const stringify = require('json-stable-stringify')
 
 const {
   cmdOptions,
@@ -14,6 +14,7 @@ const {
   validateCmdOptions,
   usage
 } = require('./cmdOptions')
+const { pretty, removeEmptyDirs } = require('./lib')
 
 const BASH='c:/cygwin64/bin/bash.exe'
 const PROJECT_DIR = '.'
@@ -66,7 +67,7 @@ async.series([
 })
 
 function readTests(cb) {
-  const readTestsResult = {}
+  readTests.result = {}
   let sortFn = (a, b) => {
     if (a.path > b.path) return 1
     else if (a.path < b.path) return -1
@@ -79,105 +80,113 @@ function readTests(cb) {
       return console.error(err)
     async.eachSeries(list.sort(sortFn), processDirEntry, err => {
       if (err) return cb(err)
-      Object.keys(readTestsResult).forEach(k => {
-        if (!readTestsResult[k].items.length)
-          delete readTestsResult[k]
+      Object.keys(readTests.result).forEach(k => {
+        if (!readTests.result[k].items.length)
+          delete readTests.result[k]
       })
-      cb(null, readTestsResult)
+      cb(null, readTests.result)
     })
   })
+}
 
-  function processDirEntry(de, cb) {
-    const ext = path.extname(de.name)
-    const nameNoExt = path.basename(de.name, ext)
-    const title = nameNoExt
-    const splittedPath = de.path.split(path.sep)
-    const depth = splittedPath.length
-    if (depth == 1) {
-      if (!cmdOptions.ic.test(de.name))
-        return cb()
-      if (cmdOptions.ec && cmdOptions.ec.test(de.name))
-        return cb()
-      readTestsResult[de.name] = { items: [] }
+// tests/bash/echo.sh - simple (not multifile) test
+// tests - TESTS_DIR_NAME
+// bash - compilerTitle
+// echo.sh - name
+// echo - nameNoExt = title
+// .sh - ext
+
+function processDirEntry(de, cb) {
+  const readTestsResult = readTests.result
+  const ext = path.extname(de.name)
+  const nameNoExt = path.basename(de.name, ext)
+  const title = nameNoExt
+  const splittedPath = de.path.split(path.sep)
+  const depth = splittedPath.length
+  if (depth == 1) {
+    if (!cmdOptions.ic.test(de.name))
       return cb()
-    } else if (depth == 2) {
-      const test = { ext, nameNoExt, title }
-      const alternativeForTitle = test.title.replace(/\.\d+$/, '')
-      if (test.title != alternativeForTitle) {
-        test.alternativeForTitle = alternativeForTitle
-        test.alternativeForName = alternativeForTitle + ext
-      }
-      const tmpTitle = test.alternativeForTitle || test.title
-      if (!cmdOptions.it.test(tmpTitle))
-        return cb()
-      if (cmdOptions.et && cmdOptions.et.test(tmpTitle))
-        return cb()
-      test.name = de.name
-      if (test.name.indexOf('.') == 0)
-        return cb()
-      test.parentDir = splittedPath.at(1)
-      test.path = path.join(PROJECT_DIR, de.path)
-      test.fullname = path.join(test.path, test.name)
-      test.compilerTitle = test.parentDir
-      if (!cmdOptions.ic.test(test.compilerTitle))
-        return cb()
-      if (cmdOptions.ec && cmdOptions.ec.test(test.compilerTitle))
-        return cb()
-      test.outputName = test.title + OUT_EXT
-      test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName)
-      const compiler = COMPILERS[test.compilerTitle]
-      if (ext != compiler.ext)
-        return cb()
-      test.multiFileTest = de.isDirectory()
-      let tmpName
-      if (test.multiFileTest) {
-        tmpName = test.alternativeForName || test.name 
-        test.fullname = path.join(test.fullname, tmpName)
-        test.path = path.join(test.path, test.name)
-      } else {
-        tmpName = test.name 
-      }
-      test.runCmd = [
-        compiler.cmd,
-        compiler.cmdArgs.replace(/FILE/g, tmpName),
-        !compiler.cmdArgs.match(/FILE/) ? `"${tmpName}"` : ''
-      ]
-      if (compiler.unlink)
-        test.unlink = path.join(
-          test.path,
-          compiler.unlink.replace(/FILE/g, tmpName)
-        )
-      test.runCmd = test.runCmd.filter(x => x).join(' ')
-      analyseTestFileHeader(test.fullname, compiler.lineComment, (err, r) => {
-        if (err) return cb(err.message + ' ' + test.fullname)
-        const { outputRc, outputStderr } = r
-        test.outputRc = outputRc
-        test.outputStderr = outputStderr
-        readTestsResult[test.compilerTitle].items.push(test)
-        return cb()
-      })
-    } else if (depth == 3) {
+    if (cmdOptions.ec && cmdOptions.ec.test(de.name))
       return cb()
+    readTestsResult[de.name] = { items: [] }
+    return cb()
+  } else if (depth == 2) {
+    const test = { ext, nameNoExt, title }
+    const alternativeForTitle = test.title.replace(/\.\d+$/, '')
+    if (test.title != alternativeForTitle) {
+      test.alternativeForTitle = alternativeForTitle
+      test.alternativeForName = alternativeForTitle + ext
     }
-  }
-
-  // search for special tags like #rc, #stderr in first N line comments
-  function analyseTestFileHeader(file, lineComment, cb) {
-    const N = 1
-    const fnEscape = str => str.replace(/(\/)/g, '\\$1')
-    const r = { outputRc: false, outputStderr: false }
-    fs.readFile(file, { encoding: 'utf8' }, (err, res) => {
-      if (err) return cb(err)
-      let re = new RegExp('(?<=' + fnEscape(lineComment) + ').*$', 'gmi')
-      let commentsArr = res.match(re)
-      if (commentsArr) {
-        const comments = commentsArr.slice(0, N).join(' ')
-        r.outputRc = /#rc/.test(comments)
-        r.outputStderr = /#stderr/.test(comments)
-      }
-      cb(null, r)
+    const tmpTitle = test.alternativeForTitle || test.title
+    if (!cmdOptions.it.test(tmpTitle))
+      return cb()
+    if (cmdOptions.et && cmdOptions.et.test(tmpTitle))
+      return cb()
+    test.name = de.name
+    if (test.name.indexOf('.') == 0)
+      return cb()
+    test.parentDir = splittedPath.at(1)
+    test.path = path.join(PROJECT_DIR, de.path)
+    test.fullname = path.join(test.path, test.name)
+    test.compilerTitle = test.parentDir
+    if (!cmdOptions.ic.test(test.compilerTitle))
+      return cb()
+    if (cmdOptions.ec && cmdOptions.ec.test(test.compilerTitle))
+      return cb()
+    test.outputName = test.title + OUT_EXT
+    test.outputFullname = path.join(OUT_DIR_NAME, test.compilerTitle, test.outputName)
+    const compiler = COMPILERS[test.compilerTitle]
+    if (ext != compiler.ext)
+      return cb()
+    test.multiFileTest = de.isDirectory()
+    let tmpName
+    if (test.multiFileTest) {
+      tmpName = test.alternativeForName || test.name
+      test.fullname = path.join(test.fullname, tmpName)
+      test.path = path.join(test.path, test.name)
+    } else {
+      tmpName = test.name
+    }
+    test.runCmd = [
+      compiler.cmd,
+      compiler.cmdArgs.replace(/FILE/g, tmpName),
+      !compiler.cmdArgs.match(/FILE/) ? `"${tmpName}"` : ''
+    ]
+    if (compiler.unlink)
+      test.unlink = path.join(
+        test.path,
+        compiler.unlink.replace(/FILE/g, tmpName)
+      )
+    test.runCmd = test.runCmd.filter(x => x).join(' ')
+    analyseTestFileHeader(test.fullname, compiler.lineComment, (err, r) => {
+      if (err) return cb(err.message + ' ' + test.fullname)
+      const { outputRc, outputStderr } = r
+      test.outputRc = outputRc
+      test.outputStderr = outputStderr
+      readTestsResult[test.compilerTitle].items.push(test)
+      return cb()
     })
+  } else if (depth == 3) {
+    return cb()
   }
+}
+
+// search for special tags like #rc, #stderr in first N line comments
+function analyseTestFileHeader(file, lineComment, cb) {
+  const N = 1
+  const fnEscape = str => str.replace(/(\/)/g, '\\$1')
+  const r = { outputRc: false, outputStderr: false }
+  fs.readFile(file, { encoding: 'utf8' }, (err, res) => {
+    if (err) return cb(err)
+    let re = new RegExp('(?<=' + fnEscape(lineComment) + ').*$', 'gmi')
+    let commentsArr = res.match(re)
+    if (commentsArr) {
+      const comments = commentsArr.slice(0, N).join(' ')
+      r.outputRc = /#rc/.test(comments)
+      r.outputStderr = /#stderr/.test(comments)
+    }
+    cb(null, r)
+  })
 }
 
 function readExpected(cb) {
@@ -271,33 +280,4 @@ function runSingleTest(item, cb) {
       })
     }
   })
-}
-
-function pretty(obj) {
-  let replacer = (key, val) => {
-    if (val instanceof RegExp)
-      val = val.toString()
-    return val
-  }
-  console.log(stringify(obj, { space: 2, replacer }))
-}
-
-function removeEmptyDirs(dir) {
-  let isEmpty = true
-  const list = fs.readdirSync(dir, { withFileTypes: true })
-
-  const dirs = list.filter(de => de.isDirectory())
-    .map(de => path.join(de.path, de.name))
-  const files = list.filter(de => de.isFile())
-    .map(de => path.join(de.path, de.name))
-
-  if (files.length) isEmpty = false
-  dirs.forEach(d => {
-    if (!removeEmptyDirs(d))
-      isEmpty = false
-  })
-  if (isEmpty) {
-    fs.rmdirSync(dir)
-  }
-  return isEmpty
 }

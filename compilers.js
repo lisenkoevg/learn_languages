@@ -3,6 +3,13 @@ const { exec } = require('child_process')
 const async = require('async')
 const stringify = require('json-stable-stringify')
 
+// COMPILERS
+//   compilerTitle
+//     ...
+//     title: compilerTitle
+//     ...
+//   ...
+
 const COMPILERS = {
   bash: {
     cmd: "bash",
