@@ -36,6 +36,31 @@ const EXPECTED = {}
 
 let SUCCESS
 
+/*
+  tests/bash/echo.sh - simple (not multifile) test
+  tests - TESTS_DIR_NAME
+  bash - compilerTitle
+  echo.sh - name
+  echo - nameNoExt = title
+  .sh - ext
+  expected output: expected/bash/echo.out
+
+  tests/bash/echo.N.sh (N = 0, 1, 2, ...) - alternative test for echo.sh test
+  echo - title
+  expected output (as previous): expected/bash/echo.out
+
+  tests/bash/module.sh/ - multifile test, dir must contain same name file - module.sh
+  module - title
+  .sh - ext
+  expected output: expected/bash/module.out
+
+  tests/bash/module.N.sh/ (N = 0, 1, 2, ...) - alternative multifile test, dir must contain file module.sh
+  module - title
+  expected output (as previos): expected/bash/module.out
+
+  tests/bash/dir_with_no_suffix/ - tests group
+*/
+
 async.series([
   trySaveCompilersVersion,
   readTests,
@@ -72,30 +97,6 @@ async.series([
   }
 })
 
-/*
-  tests/bash/echo.sh - simple (not multifile) test
-  tests - TESTS_DIR_NAME
-  bash - compilerTitle
-  echo.sh - name
-  echo - nameNoExt = title
-  .sh - ext
-  expected output: expected/bash/echo.out
-
-  tests/bash/echo.N.sh (N = 0, 1, 2, ...) - alternative test for echo.sh test
-  echo - title
-  expected output (as previous): expected/bash/echo.out
-
-  tests/bash/module.sh/ - multifile test, dir must contain same name file - module.sh
-  module - title
-  .sh - ext
-  expected output: expected/bash/module.out
-
-  tests/bash/module.N.sh/ (N = 0, 1, 2, ...) - alternative multifile test, dir must contain file module.sh
-  module - title
-  expected output (as previos): expected/bash/module.out
-
-  tests/bash/dir_with_no_suffix/ - tests group
-*/
 
 function readTests(cb) {
   readTests.result = {}
@@ -225,21 +226,24 @@ function processDirEntryLevel(de) {
   }
   test.runCmd = [
     compiler.cmd,
-    compiler.cmdArgs.replace(/FILE/g, tmpName),
-    !compiler.cmdArgs.match(/FILE/) ? `"${tmpName}"` : ''
+    compiler.cmdArgs.replace(/:FILE\b/g, tmpName),
+    !compiler.cmdArgs.match(/:FILE\b/) ? `"${tmpName}"` : ''
   ]
   test.runCmd = test.runCmd.filter(x => x).join(' ')
   if (compiler.preCmd) {
     test.preCmd = compiler.preCmd.replace(
-      /\bFILE\b/g,
+      /:FILE\b/g,
       tmpName
     )
   }
   if (compiler.postCmd) {
     test.postCmd = compiler.postCmd.replace(
-      /\bFILE\b/g,
+      /:FILE\b/g,
       tmpName
     )
+  }
+  if (compiler.preCmdResult) {
+    test.preCmdResult = compiler.preCmdResult
   }
   return { test, compiler }
 }
@@ -285,10 +289,10 @@ function runTests(cb) {
     cmdOptions.pt
   )
   SUCCESS = true
-  const iterateeCompiler = (compilerTest, compilerTitle, cb) => {
+  const iterateeCompiler = (testsForCompiler, compilerTitle, cb) => {
     fs.ensureDirSync(path.join(OUT_DIR, compilerTitle))
     async.eachLimit(
-      compilerTest.items,
+      testsForCompiler.items,
       cmdOptions.pt,
       runSingleTest,
     cb)
@@ -297,8 +301,27 @@ function runTests(cb) {
 }
 
 function runSingleTest(item, cb) {
-  item.runCmd = item.runCmd.replace(/\\/g, '/')
   const opt = { cwd: item.path, encoding: 'utf8' }
+  if (item.preCmd) {
+    child_process.exec(item.preCmd, opt, (err, stdout, stderr) => {
+      if (err && !item.outputRc) {
+        if (stderr) console.log(stderr)
+        return cb(err)
+      }
+      if (stderr.length && !item.outputStderr) {
+        console.error(stderr)
+        return cb(true)
+      }
+      item.runCmd = item.runCmd.replace(
+        /:PRECMDRESULT\b/,
+        item.preCmdResult(stdout)
+      )
+      mainRunner()
+    })
+  } else {
+    mainRunner()
+  }
+  function mainRunner() {
   const child = child_process.exec(item.runCmd, opt, (err, stdout, stderr) => {
     if (item.postCmd) {
       child_process.exec(item.postCmd, opt, (err, stdout, stdres) => {
@@ -363,6 +386,7 @@ function runSingleTest(item, cb) {
       ], cb)
     }
   })
+  }
 }
 
 function report() {

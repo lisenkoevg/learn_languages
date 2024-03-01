@@ -6,7 +6,7 @@ module.exports = { pretty, removeEmptyDirs }
 
 function pretty(obj, caption) {
   let replacer = (key, val) => {
-    if (val instanceof RegExp)
+    if (val instanceof RegExp || typeof val == 'function')
       val = val.toString()
     return val
   }

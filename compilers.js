@@ -46,9 +46,10 @@ const COMPILERS = {
   },
   gcc: {
     cmd: "gcc",
-    cmdArgs: '"FILE" -Werror -Wextra -Wall -Wpedantic -o "FILE.exe" && "FILE.exe"',
-    preCmd: 'gcc -MM "FILE"',
-    postCmd: 'rm "FILE.exe"',
+    preCmd: 'gcc -MM ":FILE"',
+    preCmdResult: stdout => (stdout.match(/\b[^.\s]+\.h\b/g) || []).map(x => '"' + x.replace(/\.h/,'.c') + '"').join(' '),
+    cmdArgs: '":FILE" :PRECMDRESULT -Werror -Wextra -Wall -Wpedantic -o ":FILE.exe" && ":FILE.exe"',
+    postCmd: 'rm ":FILE.exe"',
     title: "gcc",
     lineComment: "//",
     ext: '.c',

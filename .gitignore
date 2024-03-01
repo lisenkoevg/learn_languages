@@ -1,5 +1,6 @@
 node_modules
 tmp
+draft
 output
 tests_merged
 *.swp
