@@ -46,7 +46,8 @@ const COMPILERS = {
   gcc: {
     cmd: "gcc",
     cmdArgs: '"FILE" -Werror -Wextra -Wall -Wpedantic -o "FILE.exe" && "FILE.exe"',
-    unlink: 'FILE.exe',
+    postCmd: 'rm FILE.exe',
+    preCmd: '',
     title: "gcc",
     lineComment: "//",
     ext: '.c',

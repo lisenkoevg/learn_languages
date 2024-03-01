@@ -34,6 +34,8 @@ const { COMPILERS, trySaveCompilersVersion } = require('./compilers')
 const TESTS = {}
 const EXPECTED = {}
 
+let SUCCESS
+
 async.series([
   trySaveCompilersVersion,
   readTests,
@@ -64,6 +66,8 @@ async.series([
         console.log('runTests res: %j', res)
       removeEmptyDirs(OUT_DIR)
       report()
+      if (SUCCESS)
+        child_process.exec('nircmd beep 4000 50')
     })
   }
 })
@@ -225,11 +229,12 @@ function processDirEntryLevel(de) {
     !compiler.cmdArgs.match(/FILE/) ? `"${tmpName}"` : ''
   ]
   test.runCmd = test.runCmd.filter(x => x).join(' ')
-  if (compiler.unlink)
-    test.unlink = path.join(
-      test.path,
-      compiler.unlink.replace(/FILE/g, tmpName)
+  if (compiler.postCmd) {
+    test.postCmd = compiler.postCmd.replace(
+      /\bFILE\b/g,
+      tmpName
     )
+  }
   return { test, compiler }
 }
 
@@ -273,6 +278,7 @@ function runTests(cb) {
     cmdOptions.pc,
     cmdOptions.pt
   )
+  SUCCESS = true
   const iterateeCompiler = (compilerTest, compilerTitle, cb) => {
     fs.ensureDirSync(path.join(OUT_DIR, compilerTitle))
     async.eachLimit(
@@ -288,9 +294,9 @@ function runSingleTest(item, cb) {
   item.runCmd = item.runCmd.replace(/\\/g, '/')
   const opt = { cwd: item.path, encoding: 'buffer' }
   const child = child_process.exec(item.runCmd, opt, (err, stdout, stderr) => {
-    if (item.unlink) {
-      fs.unlink(item.unlink, err => {
-        if (err) console.error(err)
+    if (item.postCmd) {
+      child_process.exec(item.postCmd, opt, (err, stdout, stdres) => {
+        if (err) console.error(err, stderr, stdout)
       })
     }
     if (err && !item.outputRc) {
@@ -324,6 +330,7 @@ function runSingleTest(item, cb) {
       )
       fs.unlink(item.outputFullname, err => cb())
     } else {
+      SUCCESS = false
       console.log(
         '%s %s FAILED (see "%s")',
         item.compilerTitle.padEnd(pad[0]),
