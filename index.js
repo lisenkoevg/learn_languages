@@ -191,7 +191,7 @@ function processDirEntryLevel(de) {
   test.group = splittedPath.slice(2).join(path.sep)
   if (!cmdOptions.it.test(test.group + ' ' + tmpTitle))
     return
-  if (cmdOptions.et && cmdOptions.et.test(tmpTitle))
+  if (cmdOptions.et && cmdOptions.et.test(test.group + ' ' + tmpTitle))
     return
   test.name = de.name
   if (test.name.indexOf('.') == 0) {
@@ -229,6 +229,12 @@ function processDirEntryLevel(de) {
     !compiler.cmdArgs.match(/FILE/) ? `"${tmpName}"` : ''
   ]
   test.runCmd = test.runCmd.filter(x => x).join(' ')
+  if (compiler.preCmd) {
+    test.preCmd = compiler.preCmd.replace(
+      /\bFILE\b/g,
+      tmpName
+    )
+  }
   if (compiler.postCmd) {
     test.postCmd = compiler.postCmd.replace(
       /\bFILE\b/g,
@@ -292,7 +298,7 @@ function runTests(cb) {
 
 function runSingleTest(item, cb) {
   item.runCmd = item.runCmd.replace(/\\/g, '/')
-  const opt = { cwd: item.path, encoding: 'buffer' }
+  const opt = { cwd: item.path, encoding: 'utf8' }
   const child = child_process.exec(item.runCmd, opt, (err, stdout, stderr) => {
     if (item.postCmd) {
       child_process.exec(item.postCmd, opt, (err, stdout, stdres) => {
@@ -300,33 +306,47 @@ function runSingleTest(item, cb) {
       })
     }
     if (err && !item.outputRc) {
-      if (stderr) console.log(stderr.toString('utf8'))
+      if (stderr) console.log(stderr)
       return cb(err)
     }
     if (stderr.length && !item.outputStderr) {
-      console.error(stderr.toString('utf8'))
+      console.error(stderr)
       return cb(true)
     }
-    let result = stdout
-    if (item.outputStderr) {
-      let tmp = stdout.toString('utf8').replace(/^(.+)$/gm, 'stdout: $1')
-      if (stderr.length) {
-        tmp += stderr.toString('utf8').replace(/^(.+)$/gm, 'stderr: $1')
+
+    let postOut = COMPILERS[item.compilerTitle].postProcessStdout
+    if (postOut && stdout) {
+      stdout = stdout.replace(postOut.search, postOut.replace)
+    }
+    let postErr = COMPILERS[item.compilerTitle].postProcessStderr
+    if (postErr && stderr) {
+      stderr = stderr.replace(postErr.search, postErr.replace)
+    }
+
+    let result
+    if (!item.outputRc && !item.outputStderr) {
+      result = stdout
+    } else {
+      result = ''
+      if (item.outputStderr) {
+        let tmpOut = result.replace(/^(.+)$/gm, 'stdout: $1')
+        if (stderr) {
+          let tmpErr = stderr
+          tmpOut += tmpErr.replace(/^(.+)$/gm, 'stderr: $1')
+        }
+        result = tmpOut
       }
-      result = Buffer.from(tmp)
+      if (item.outputRc) {
+        result = result + 'rc: ' + child.exitCode
+      }
     }
-    if (item.outputRc) {
-      result = Buffer.concat([ result, Buffer.from('rc: ' + child.exitCode) ])
-    }
-    if (item.compilerTitle == 'cmd') {
-      result = Buffer.from(result.toString('utf8').replace(/\r\n/g, '\n'))
-    }
-    const pad = [7, 15]
+
+    const pad = [7, 30]
     const tmpTitle = item.alternativeForTitle || item.title
     if (result == EXPECTED[path.join(item.group, tmpTitle)]) {
       console.log('%s %s passed',
         item.compilerTitle.padEnd(pad[0]),
-        item.title.padEnd(pad[1])
+        path.join(item.group, item.title).padEnd(pad[1])
       )
       fs.unlink(item.outputFullname, err => cb())
     } else {
@@ -334,12 +354,12 @@ function runSingleTest(item, cb) {
       console.log(
         '%s %s FAILED (see "%s")',
         item.compilerTitle.padEnd(pad[0]),
-        item.title.padEnd(pad[1]),
+        path.join(item.group, item.title).padEnd(pad[1]),
         item.outputFullname
       )
       async.series([
         async.apply(fs.ensureDir, item.outputPath),
-        async.apply(fs.writeFile, item.outputFullname, result)
+        async.apply(fs.writeFile, item.outputFullname, Buffer.from(result, 'utf8'))
       ], cb)
     }
   })

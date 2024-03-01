@@ -42,12 +42,13 @@ const COMPILERS = {
     lineComment: "#",
     ext: '.mk',
     versionPattern: /(?<=GNU Make )[\d.]+/,
+    postProcessStderr: { search: /(^[^*]*\*{3} )(.*)\.  Stop\./, replace: '$2' }
   },
   gcc: {
     cmd: "gcc",
     cmdArgs: '"FILE" -Werror -Wextra -Wall -Wpedantic -o "FILE.exe" && "FILE.exe"',
-    postCmd: 'rm FILE.exe',
-    preCmd: '',
+    preCmd: 'gcc -MM "FILE"',
+    postCmd: 'rm "FILE.exe"',
     title: "gcc",
     lineComment: "//",
     ext: '.c',
@@ -61,6 +62,7 @@ const COMPILERS = {
     ext: '.bat',
     versionCmd: '/c ver',
     versionPattern: /(?<=Microsoft Windows \[Version )[\d.]+/,
+    postProcessStdout: { search: /\r\n/g, replace: '\n' }
   },
   python: {
     cmd: "python3.9",
@@ -79,6 +81,7 @@ const COMPILERS = {
     versionPattern: /(?<=ruby )[\d.]+/,
   },
 }
+COMPILERS.cmd.postProcessStderr = COMPILERS.cmd.postProcessStdout
 const defaultVersionCmd = '--version'
 for (v in COMPILERS) {
   COMPILERS[v].versionCmd = COMPILERS[v].versionCmd || defaultVersionCmd
