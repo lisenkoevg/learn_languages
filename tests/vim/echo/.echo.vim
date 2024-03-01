@@ -1,5 +1,5 @@
 vim9script
 
-echo "1"
+echo "1\<NL>"
 
 exit

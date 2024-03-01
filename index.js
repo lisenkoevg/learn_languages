@@ -25,6 +25,7 @@ const EXPECTED_DIR = path.join(PROJECT_DIR, EXPECTED_DIR_NAME)
 const OUT_EXT = '.out'
 const OUT_DIR_NAME = 'output'
 const OUT_DIR = path.join(PROJECT_DIR, OUT_DIR_NAME)
+const IN_EXT = '.in'
 
 if (cmdOptions.help || !validateCmdOptions()) {
   usage()
@@ -33,6 +34,8 @@ if (cmdOptions.help || !validateCmdOptions()) {
 const { COMPILERS, trySaveCompilersVersion } = require('./compilers')
 const TESTS = {}
 const EXPECTED = {}
+
+const LINES_TO_ANALYSE = 5
 
 let SUCCESS
 
@@ -97,7 +100,6 @@ async.series([
       child_process.exec('nircmd beep 4000 50')
   })
 })
-
 
 function readTests(cb) {
   readTests.result = {}
@@ -168,17 +170,23 @@ function processDirEntryLevel(de) {
   }
   const splittedPath = de.path.split(path.sep)
   const depth = splittedPath.length
-  const ext = path.extname(de.name)
+  const name = de.name
+  if (name.indexOf('.') == 0) {
+    if (de.isDirectory())
+      readTests.skipDir.push(path.join(de.path, name))
+    return
+  }
+  const ext = path.extname(name)
   if (/^\.\d+$/.test(ext)) {
     console.error(
       'Incorrect try to use tests group (%s) as multifile alternative test.',
-      path.join(de.path, de.name)
+      path.join(de.path, name)
     )
     process.exit(1)
   }
-  const nameNoExt = path.basename(de.name, ext)
+  const nameNoExt = path.basename(name, ext)
   const title = nameNoExt
-  const test = { ext, nameNoExt, title, depth }
+  const test = { ext, nameNoExt, title, depth, name }
   const alternativePattern = new RegExp('\\.\\d+$')
   if (ext == '' && de.isDirectory() && !alternativePattern.test(test.title)) {
     const isTestsGroup = true
@@ -195,15 +203,9 @@ function processDirEntryLevel(de) {
     return
   if (cmdOptions.et && cmdOptions.et.test(test.group + ' ' + tmpTitle))
     return
-  test.name = de.name
-  if (test.name.indexOf('.') == 0) {
-    if (de.isDirectory())
-      readTests.skipDir.push(path.join(de.path, de.name))
-    return
-  }
   test.parentDir = splittedPath.at(1)
   test.path = path.join(PROJECT_DIR, de.path)
-  test.fullname = path.join(test.path, test.name)
+  test.fullname = path.join(test.path, name)
   test.compilerTitle = test.parentDir
   if (!cmdOptions.ic.test(test.compilerTitle))
     return
@@ -218,12 +220,12 @@ function processDirEntryLevel(de) {
     return
   let tmpName
   if (multiFileTest) {
-    readTests.skipDir.push(path.join(de.path, de.name))
-    tmpName = test.alternativeForName || test.name
+    readTests.skipDir.push(path.join(de.path, name))
+    tmpName = test.alternativeForName || name
     test.fullname = path.join(test.fullname, tmpName)
-    test.path = path.join(test.path, test.name)
+    test.path = path.join(test.path, name)
   } else {
-    tmpName = test.name
+    tmpName = name
   }
   test.runCmd = [
     compiler.cmd,
@@ -249,9 +251,8 @@ function processDirEntryLevel(de) {
   return { test, compiler }
 }
 
-// search for special tags like #rc, #stderr in first N line comments
+// search for special tags #rc, #stderr in first N line comments
 function analyseTestFileHeader(file, lineComment, cb) {
-  const N = 1
   const fnEscape = str => str.replace(/(\/)/g, '\\$1')
   const r = { outputRc: false, outputStderr: false }
   fs.readFile(file, { encoding: 'utf8' }, (err, res) => {
@@ -259,7 +260,7 @@ function analyseTestFileHeader(file, lineComment, cb) {
     let re = new RegExp('(?<=' + fnEscape(lineComment) + ').*$', 'gmi')
     let commentsArr = res.match(re)
     if (commentsArr) {
-      const comments = commentsArr.slice(0, N).join(' ')
+      const comments = commentsArr.slice(0, LINES_TO_ANALYSE).join(' ')
       r.outputRc = /#rc/.test(comments)
       r.outputStderr = /#stderr/.test(comments)
     }
@@ -268,19 +269,47 @@ function analyseTestFileHeader(file, lineComment, cb) {
 }
 
 function readExpected(cb) {
-  const limitExpected = 10
+  const limitExpected = 1
   const tmp = readTests.result
   const selectedTests = Object.keys(tmp).reduce((acc, compilerTitle) => {
     tmp[compilerTitle].items.forEach(x => {
       const tmpTitle = x.alternativeForTitle || x.title
-      acc[path.join(x.group, tmpTitle)] = path.join(x.group, tmpTitle) + OUT_EXT
+      acc[path.join(x.group, tmpTitle)] = {
+        out: path.join(x.group, tmpTitle) + OUT_EXT,
+        in: path.join(x.group, tmpTitle) + IN_EXT
+      }
     })
     return acc
   }, {})
-  let iteratee = (file, title, cb) => {
-    fs.readFile(path.join(EXPECTED_DIR, file), { encoding: 'utf8' }, cb)
+  async.mapValuesLimit(selectedTests, limitExpected, (item, title, cb) => {
+    async.mapValuesLimit(item, limitExpected, (file, type, cb) => {
+      fs.readFile(path.join(EXPECTED_DIR, file), { encoding: 'utf8' }, (err, res) => {
+        if (err && !(type == 'in' && err.code == 'ENOENT'))
+          return cb(err)
+        cb(null, res)
+      })
+    }, (err, res) => {
+      if (err) return cb(err)
+      analyseInputFile(res)
+      cb(null, res)
+    })
+  }, cb)
+}
+
+function analyseInputFile(item) {
+  if (!item.in) return
+  let input = item.in.split(/\n/).slice(0, LINES_TO_ANALYSE).join('\n')
+  let matchEnv = input.match(/\s*#env\s+(?<env>[^\n|$]+)\s*/)
+  if (matchEnv) {
+    item.env = matchEnv[1].split(' ').reduce((acc, cur) => {
+      let v = cur.split('=')
+      acc[v[0]] = v[1]
+      return acc
+    }, {})
   }
-  async.mapValuesLimit(selectedTests, limitExpected, iteratee, cb)
+  let matchArgs = input.match(/\s*#args\s+(?<args>.*)\s*/)
+  if (matchArgs)
+    item.args = matchArgs[1]
 }
 
 function runTests(cb) {
@@ -323,73 +352,79 @@ function runSingleTest(item, cb) {
     mainRunner()
   }
   function mainRunner() {
-  const child = child_process.exec(item.runCmd, opt, (err, stdout, stderr) => {
-    if (err && !item.outputRc) {
-      if (stderr) console.log(stderr)
-      return cb(err)
-    }
-    if (stderr.length && !item.outputStderr) {
-      if (item.compilerTitle != 'vim') {
-        console.error(stderr)
-        return cb(true)
-      } else {
-        stdout = stderr.trim().replace(/Vim: Warning: (Input|Output) is not (from|to) a terminal\s+/gs, '')
-      }
-    }
-    if (item.postCmd) {
-      child_process.exec(item.postCmd, opt, (err, stdout, stdres) => {
-        if (err) console.error(err, stderr, stdout)
-      })
-    }
-    let postOut = COMPILERS[item.compilerTitle].postProcessStdout
-    if (postOut && stdout) {
-      stdout = stdout.replace(postOut.search, postOut.replace)
-    }
-    let postErr = COMPILERS[item.compilerTitle].postProcessStderr
-    if (postErr && stderr) {
-      stderr = stderr.replace(postErr.search, postErr.replace)
-    }
-
-    let result
-    if (!item.outputRc && !item.outputStderr) {
-      result = stdout
-    } else {
-      result = ''
-      if (item.outputStderr) {
-        let tmpOut = result.replace(/^(.+)$/gm, 'stdout: $1')
-        if (stderr) {
-          let tmpErr = stderr
-          tmpOut += tmpErr.replace(/^(.+)$/gm, 'stderr: $1')
-        }
-        result = tmpOut
-      }
-      if (item.outputRc) {
-        result = result + 'rc: ' + child.exitCode
-      }
-    }
-
-    const pad = [7, 30]
     const tmpTitle = item.alternativeForTitle || item.title
-    if (result == EXPECTED[path.join(item.group, tmpTitle)]) {
-      console.log('%s %s passed',
-        item.compilerTitle.padEnd(pad[0]),
-        path.join(item.group, item.title).padEnd(pad[1])
-      )
-      fs.unlink(item.outputFullname, err => cb())
-    } else {
-      SUCCESS = false
-      console.log(
-        '%s %s FAILED (see "%s")',
-        item.compilerTitle.padEnd(pad[0]),
-        path.join(item.group, item.title).padEnd(pad[1]),
-        item.outputFullname
-      )
-      async.series([
-        async.apply(fs.ensureDir, item.outputPath),
-        async.apply(fs.writeFile, item.outputFullname, Buffer.from(result, 'utf8'))
-      ], cb)
+    const expected = EXPECTED[path.join(item.group, tmpTitle)]
+    let opt_
+    if (expected.env) {
+      opt_ = Object.assign({ env: expected.env}, opt)
     }
-  })
+    const child = child_process.exec(item.runCmd, opt_ || opt, (err, stdout, stderr) => {
+      if (err && !item.outputRc) {
+        if (stderr) console.log(stderr)
+        return cb(err)
+      }
+      if (stderr.length && !item.outputStderr) {
+        if (item.compilerTitle != 'vim') {
+          console.error(stderr)
+          return cb(true)
+        } else {
+          stdout = stderr.trim().replace(/Vim: Warning: (Input|Output) is not (from|to) a terminal\s+/gs, '')
+        }
+      }
+      if (item.postCmd) {
+        child_process.exec(item.postCmd, opt, (err, stdout, stdres) => {
+          if (err) console.error(err, stderr, stdout)
+        })
+      }
+      let postOut = COMPILERS[item.compilerTitle].postProcessStdout
+      if (postOut && stdout) {
+        stdout = stdout.replace(postOut.search, postOut.replace)
+      }
+      let postErr = COMPILERS[item.compilerTitle].postProcessStderr
+      if (postErr && stderr) {
+        stderr = stderr.replace(postErr.search, postErr.replace)
+      }
+
+      let result
+      if (!item.outputRc && !item.outputStderr) {
+        result = stdout
+      } else {
+        result = ''
+        if (item.outputStderr) {
+          let tmpOut = result.replace(/^(.+)$/gm, 'stdout: $1')
+          if (stderr) {
+            let tmpErr = stderr
+            tmpOut += tmpErr.replace(/^(.+)$/gm, 'stderr: $1')
+          }
+          result = tmpOut
+        }
+        if (item.outputRc) {
+          result = result + 'rc: ' + child.exitCode
+        }
+      }
+
+      const pad = [7, 30]
+      const tmpTitle = item.alternativeForTitle || item.title
+      if (result == expected.out) {
+        console.log('%s %s passed',
+          item.compilerTitle.padEnd(pad[0]),
+          path.join(item.group, item.title).padEnd(pad[1])
+        )
+        fs.unlink(item.outputFullname, err => cb())
+      } else {
+        SUCCESS = false
+        console.log(
+          '%s %s FAILED (see "%s")',
+          item.compilerTitle.padEnd(pad[0]),
+          path.join(item.group, item.title).padEnd(pad[1]),
+          item.outputFullname
+        )
+        async.series([
+          async.apply(fs.ensureDir, item.outputPath),
+          async.apply(fs.writeFile, item.outputFullname, Buffer.from(result, 'utf8'))
+        ], cb)
+      }
+    })
   }
 }
 

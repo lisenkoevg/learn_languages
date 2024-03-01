@@ -9,3 +9,7 @@ mergeTests:
     for f in $(COMPILERS); do \
       $(echo) cp -r $$f/* $(MERGED_DIR); \
 	done; \
+
+.PHONY: clean
+clean:
+	rm -rf ./output
