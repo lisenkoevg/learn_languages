@@ -61,6 +61,11 @@ let SUCCESS
   tests/bash/dir_with_no_suffix/ - tests group
 */
 
+if (cmdOptions.config) {
+  pretty(COMPILERS, 'COMPILERS')
+  pretty(cmdOptions, 'cmdOptions')
+  process.exit()
+}
 async.series([
   trySaveCompilersVersion,
   readTests,
@@ -70,31 +75,27 @@ async.series([
     return console.error(err)
   Object.assign(TESTS, res[1])
   Object.assign(EXPECTED, res[2])
-  if (cmdOptions.config) {
-    pretty(COMPILERS, 'COMPILERS')
-    pretty(cmdOptions, 'cmdOptions')
-  }
-  if (cmdOptions.list) {
+
+  if (cmdOptions['dry-run']) {
     pretty(TESTS, 'TESTS')
     pretty(EXPECTED, 'EXPECTED')
-    !cmdOptions.run && report()
+    report()
+    process.exit()
   }
-  if (cmdOptions.run) {
-    if (!Object.keys(EXPECTED).length) {
-      console.error('No tests selected')
-      return
-    }
-    runTests((err, res) => {
-      if (err)
-        console.error('runTests error: %j', err)
-      if (res)
-        console.log('runTests res: %j', res)
-      removeEmptyDirs(OUT_DIR)
-      report()
-      if (SUCCESS)
-        child_process.exec('nircmd beep 4000 50')
-    })
+  if (!Object.keys(EXPECTED).length) {
+    console.error('No tests selected')
+    return
   }
+  runTests((err, res) => {
+    if (err)
+      console.error('runTests error: %j', err)
+    if (res)
+      console.log('runTests res: %j', res)
+    removeEmptyDirs(OUT_DIR)
+    report()
+    if (SUCCESS)
+      child_process.exec('nircmd beep 4000 50')
+  })
 })
 
 
@@ -323,20 +324,23 @@ function runSingleTest(item, cb) {
   }
   function mainRunner() {
   const child = child_process.exec(item.runCmd, opt, (err, stdout, stderr) => {
-    if (item.postCmd) {
-      child_process.exec(item.postCmd, opt, (err, stdout, stdres) => {
-        if (err) console.error(err, stderr, stdout)
-      })
-    }
     if (err && !item.outputRc) {
       if (stderr) console.log(stderr)
       return cb(err)
     }
     if (stderr.length && !item.outputStderr) {
-      console.error(stderr)
-      return cb(true)
+      if (item.compilerTitle != 'vim') {
+        console.error(stderr)
+        return cb(true)
+      } else {
+        stdout = stderr.trim().replace(/Vim: Warning: (Input|Output) is not (from|to) a terminal\s+/gs, '')
+      }
     }
-
+    if (item.postCmd) {
+      child_process.exec(item.postCmd, opt, (err, stdout, stdres) => {
+        if (err) console.error(err, stderr, stdout)
+      })
+    }
     let postOut = COMPILERS[item.compilerTitle].postProcessStdout
     if (postOut && stdout) {
       stdout = stdout.replace(postOut.search, postOut.replace)

@@ -81,6 +81,14 @@ const COMPILERS = {
     ext: '.rb',
     versionPattern: /(?<=ruby )[\d.]+/,
   },
+  vim: {
+    cmd: "vim.bat",
+    cmdArgs: '-u',
+    title: "vim",
+    lineComment: "#",
+    ext: '.vim',
+    versionPattern: /(?<=VIM - Vi IMproved )[\d.]+/i,
+  },
 }
 COMPILERS.cmd.postProcessStderr = COMPILERS.cmd.postProcessStdout
 const defaultVersionCmd = '--version'

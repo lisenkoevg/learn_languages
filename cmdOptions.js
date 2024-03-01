@@ -8,24 +8,20 @@ const cmdOptions = tryCmdOptions()
 function optionDefinitions() {
   return [
     { name: 'help', alias: 'h', type: Boolean, description: 'show this help' },
-    { name: 'list', alias: 'l', type: Boolean, description: 'list test and expected files' },
+    { name: 'dry-run', alias: 'n', type: Boolean, description: 'don\'n run tests, but show tests and expected files' },
     { name: 'config', alias: 'c', type: Boolean, description: 'show compilers configuration' },
-    { name: 'pc', type: Number, defaultValue: 5, description: 'number of parallel compiler types' },
-    { name: 'pt', type: Number, defaultValue: 5, description: 'number of parallel test by single compiler type' },
     { name: 'sequental', alias: 's', type: Boolean, description: 'set to 1 both parallel tests and parallel compilers type' },
     { name: 'parallel', alias: 'p', type: Boolean, description: 'set to 100 both parallel tests and parallel compilers type' },
-    { name: 'run', alias: 'r', type: Boolean, description: 'run tests' },
     { name: 'ic', type: String, defaultValue: '.', description: 'include filter by compiler' },
     { name: 'it', type: String, defaultValue: '.', description: 'include filter by test' },
     { name: 'ec', type: String, defaultValue: '', description: 'exclude filter by compiler' },
     { name: 'et', type: String, defaultValue: '', description: 'exclude filter by test' },
+    { name: 'pc', type: Number, defaultValue: 5, description: 'number of parallel compiler types' },
+    { name: 'pt', type: Number, defaultValue: 5, description: 'number of parallel test by single compiler type' },
   ]
 }
 
 function validateCmdOptions() {
-  if (!(cmdOptions.help || cmdOptions.list || cmdOptions.config ||
-    cmdOptions.compilerVersion || cmdOptions.run))
-    return false
   if (cmdOptions.sequental)
     cmdOptions.pc = cmdOptions.pt = 1
   if (cmdOptions.parallel)
@@ -39,7 +35,7 @@ function tryCmdOptions() {
     args = commandLineArgs(optionDefinitions())
   } catch (e) {
     console.error(e.message)
-    console.error("Try -h")
+    usage()
     process.exit(1)
   }
   args.it = new RegExp(args.it, 'i')
