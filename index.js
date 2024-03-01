@@ -184,7 +184,8 @@ function processDirEntryLevel(de) {
     test.alternativeForName = alternativeForTitle + ext
   }
   const tmpTitle = test.alternativeForTitle || test.title
-  if (!cmdOptions.it.test(tmpTitle))
+  test.group = splittedPath.slice(2).join(path.sep)
+  if (!cmdOptions.it.test(test.group + ' ' + tmpTitle))
     return
   if (cmdOptions.et && cmdOptions.et.test(tmpTitle))
     return
@@ -196,7 +197,6 @@ function processDirEntryLevel(de) {
   }
   test.parentDir = splittedPath.at(1)
   test.path = path.join(PROJECT_DIR, de.path)
-  test.group = splittedPath.slice(2).join(path.sep)
   test.fullname = path.join(test.path, test.name)
   test.compilerTitle = test.parentDir
   if (!cmdOptions.ic.test(test.compilerTitle))
