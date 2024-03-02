@@ -70,6 +70,7 @@ if (cmdOptions.config) {
   pretty(cmdOptions, 'cmdOptions')
   process.exit()
 }
+console.time('elapsed')
 async.series([
   trySaveCompilersVersion,
   readTests,
@@ -80,15 +81,17 @@ async.series([
   Object.assign(TESTS, res[1])
   Object.assign(EXPECTED, res[2])
 
+  if (!Object.keys(EXPECTED).length) {
+    console.error('No tests selected')
+    console.timeEnd('elapsed')
+    return
+  }
   if (cmdOptions['dry-run']) {
     pretty(TESTS, 'TESTS')
     pretty(EXPECTED, 'EXPECTED')
     report()
+    console.timeEnd('elapsed')
     process.exit()
-  }
-  if (!Object.keys(EXPECTED).length) {
-    console.error('No tests selected')
-    return
   }
   runTests((err, res) => {
     if (err)
@@ -97,6 +100,7 @@ async.series([
       console.log('runTests res: %j', res)
     removeEmptyDirs(OUT_DIR)
     report()
+    console.timeEnd('elapsed')
     if (!FAILED)
       child_process.exec('nircmd beep 4000 50')
   })
@@ -377,11 +381,13 @@ function runSingleTest(item, cb) {
     if (cmdOptions.verbose)
       verboseExecParams(item.runCmd, opt_ || opt)
     const child = child_process.exec(item.runCmd, opt_ || opt, (err, stdout, stderr) => {
+      const compiler = COMPILERS[item.compilerTitle]
       if (cmdOptions.verbose) {
         verboseExecResult(err, stdout, stderr)
       }
       if (err && !item.outputRc) {
-        if (stderr) console.log(stderr)
+        if (stderr) console.error(stderr)
+        if (stdout) console.error(compiler.postProcessStdout && compiler.postProcessStdout(stdout).trim() || stdout)
         return cb(err)
       }
       if (stderr.length && !item.outputStderr) {
@@ -397,13 +403,11 @@ function runSingleTest(item, cb) {
           if (err) console.error(err, stderr, stdout)
         })
       }
-      let postOut = COMPILERS[item.compilerTitle].postProcessStdout
-      if (postOut && stdout) {
-        stdout = stdout.replace(postOut.search, postOut.replace)
+      if (compiler.postProcessStdout && stdout) {
+        stdout = compiler.postProcessStdout(stdout)
       }
-      let postErr = COMPILERS[item.compilerTitle].postProcessStderr
-      if (postErr && stderr) {
-        stderr = stderr.replace(postErr.search, postErr.replace)
+      if (compiler.postProcessStderr && stderr) {
+        stderr = compiler.postProcessStderr(stderr)
       }
 
       let result
@@ -471,23 +475,20 @@ function verboseExecParams(cmd, opt) {
 }
 
 function verboseExecResult(err, stdout, stderr) {
-  err && f('err', err)
-  stderr && f('stderr', stderr)
-  stdout && f('stdout', stdout)
-
+  f('err', err)
+  f('stdout', stdout)
+  f('stderr', stderr)
   function f(caption, obj) {
-    if (obj) {
-      console.log('=== %s ======', caption)
-      let tmp = obj
-      if (typeof obj == 'string'){
-        tmp = tmp
-          .replace(/(?<!\r)(\r\r\n)/g, '^r^r^n$1')
-          .replace(/(?<!\r)(\r\n)/g, '^r^n$1')
-          .replace(/(?<!\r)(\n)/g, '^n$1')
-          .replace(/\t/g, '^t')
-      }
-      console.log(tmp)
-      console.log('=== %s end ===', caption)
+    console.log('=== %s ======', caption)
+    let tmp = obj
+    if (typeof obj == 'string'){
+      tmp = tmp
+        .replace(/(?<!\r)(\r\r\n)/g, '^r^r^n$1')
+        .replace(/(?<!\r)(\r\n)/g, '^r^n$1')
+        .replace(/(?<!\r)(\n)/g, '^n$1')
+        .replace(/\t/g, '^t')
     }
+    tmp && console.log(tmp)
+    console.log('=== %s end ===', caption)
   }
 }
