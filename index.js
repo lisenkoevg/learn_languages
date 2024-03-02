@@ -285,8 +285,16 @@ function readExpected(cb) {
   async.mapValuesLimit(selectedTests, limitExpected, (item, title, cb) => {
     async.mapValuesLimit(item, limitExpected, (file, type, cb) => {
       fs.readFile(path.join(EXPECTED_DIR, file), { encoding: 'utf8' }, (err, res) => {
-        if (err && !(type == 'in' && err.code == 'ENOENT'))
-          return cb(err)
+        if (err) {
+          if (err.code != 'ENOENT') {
+            return cb(err)
+          } else {
+            if (type == 'out') {
+              console.error('No expected output for test.')
+              return cb(err.message)
+            }
+          }
+        }
         cb(null, res)
       })
     }, (err, res) => {
@@ -310,15 +318,16 @@ function analyseInputFile(item) {
   }
   let matchArgs = input.match(/\s*#args\s+(?<args>.*)\s*/)
   if (matchArgs)
-    item.args = matchArgs[1]
+    item.args = matchArgs[1].trim()
 }
 
 function runTests(cb) {
   fs.ensureDirSync(OUT_DIR);
-  console.log("Start runTest, parallel compilers/test: %s/%s",
-    cmdOptions.pc,
-    cmdOptions.pt
-  )
+  if (!cmdOptions['dry-run'])
+    console.log("Start tests, parallel compilers/test: %s/%s\n",
+      cmdOptions.pc,
+      cmdOptions.pt
+    )
   const iterateeCompiler = (testsForCompiler, compilerTitle, cb) => {
     fs.ensureDirSync(path.join(OUT_DIR, compilerTitle))
     async.eachLimit(
@@ -358,6 +367,15 @@ function runSingleTest(item, cb) {
     if (expected.env) {
       opt_ = Object.assign({ env: expected.env}, opt)
     }
+    if (expected.args) {
+      item.runCmd += ' ' + expected.args
+      const compiler = COMPILERS[item.compilerTitle]
+      if (compiler.alterCmdWithArgs) {
+        item.runCmd = compiler.alterCmdWithArgs(item)
+      }
+    }
+    if (cmdOptions.verbose)
+      verboseExecParams(item.runCmd, opt_ || opt)
     const child = child_process.exec(item.runCmd, opt_ || opt, (err, stdout, stderr) => {
       if (cmdOptions.verbose) {
         verboseExecResult(err, stdout, stderr)
@@ -437,13 +455,19 @@ function report() {
   const compilersCount = compilers.length
   const testsCount = compilers.reduce((acc, key) => acc + TESTS[key].items.length, 0)
   const expectedCount = Object.keys(EXPECTED).length
-  console.log('\nCompilers/tests/unique: %s/%s/%s, passed/failed: %s/%s',
+  console.log('\nCompilers/tests/unique: %s/%s/%s%s',
     compilersCount,
     testsCount,
     expectedCount,
-    PASSED,
-    FAILED
+    cmdOptions['dry-run'] ? '' : util.format(', passed/failed: %s/%s', PASSED, FAILED)
   )
+}
+
+function verboseExecParams(cmd, opt) {
+  console.log('=== cmd & options ======')
+  console.log(cmd)
+  console.log('%j', opt)
+  console.log('=== end cmd & options ==')
 }
 
 function verboseExecResult(err, stdout, stderr) {

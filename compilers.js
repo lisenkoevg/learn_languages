@@ -58,6 +58,7 @@ const COMPILERS = {
   cmd: {
     cmd: "cmd",
     cmdArgs: "/d /c",
+    alterCmdWithArgs: item => item.runCmd.replace(new RegExp('(?<=' + item.name + ')"'), '') + '"',
     title: "cmd",
     lineComment: "REM ",
     ext: '.bat',
