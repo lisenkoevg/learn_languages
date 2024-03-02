@@ -424,7 +424,7 @@ function runSingleTest(item, cb) {
         }
       }
 
-      const pad = [7, 30]
+      const pad = [10, 30]
       const tmpTitle = item.alternativeForTitle || item.title
       if (result == expected.out) {
         PASSED++

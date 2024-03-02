@@ -55,11 +55,11 @@ const COMPILERS = {
     ext: '.c',
     versionPattern: /(?<=gcc \(GCC\) )[\d.]+/,
   },
-  cmd: {
+  winBatch: {
     cmd: "cmd",
     cmdArgs: "/d /c",
     alterCmdWithArgs: item => item.runCmd.replace(new RegExp('(?<=' + item.name + ')"'), '') + '"',
-    title: "cmd",
+    title: "winBatch",
     lineComment: "REM ",
     ext: '.bat',
     versionCmd: '/c ver',
@@ -92,7 +92,7 @@ const COMPILERS = {
     postProcessStdout: { search: /(\r\r\n(<BR>)?)+/g, replace: '\n' }
   },
 }
-COMPILERS.cmd.postProcessStderr = COMPILERS.cmd.postProcessStdout
+COMPILERS.winBatch.postProcessStderr = COMPILERS.winBatch.postProcessStdout
 const defaultVersionCmd = '--version'
 for (v in COMPILERS) {
   COMPILERS[v].versionCmd = COMPILERS[v].versionCmd || defaultVersionCmd
