@@ -2,7 +2,7 @@ const stringify = require('json-stable-stringify')
 const fs = require('fs-extra')
 const path = require('path')
 
-module.exports = { pretty, removeEmptyDirs }
+module.exports = { pretty, removeEmptyDirs}
 
 function pretty(obj, caption) {
   let replacer = (key, val) => {
@@ -32,4 +32,21 @@ function removeEmptyDirs(dir) {
     fs.rmdirSync(dir)
   }
   return isEmpty
+}
+
+function strHex(str, last) {
+  console.log('|%s|', str)
+  if (typeof str != 'string' || !str.length)
+    return
+  const splitted = str.split(/\n/)
+  if (splitted.length == 1) {
+    const spaced = ' ' + str.split(/(<?.)/).filter(x => x).join(' ') + (!last ? '  ' : '')
+    const hex = Buffer.from(str + (!last ? '\n' : ''), 'utf8').toString('hex')
+    console.log('|%s|', spaced)
+    console.log('|%s|', hex)
+  } else {
+    splitted.forEach((str, i, arr) => {
+      strHex(str, i == arr.length - 1)
+    })
+  }
 }

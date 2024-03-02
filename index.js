@@ -14,7 +14,7 @@ const {
   validateCmdOptions,
   usage
 } = require('./cmdOptions')
-const { pretty, removeEmptyDirs } = require('./lib')
+const { pretty, removeEmptyDirs, strHex } = require('./lib')
 
 const BASH='c:/cygwin64/bin/bash.exe'
 const PROJECT_DIR = '.'
@@ -37,7 +37,8 @@ const EXPECTED = {}
 
 const LINES_TO_ANALYSE = 5
 
-let SUCCESS
+let PASSED = 0
+let FAILED = 0
 
 /*
   tests/bash/echo.sh - simple (not multifile) test
@@ -96,7 +97,7 @@ async.series([
       console.log('runTests res: %j', res)
     removeEmptyDirs(OUT_DIR)
     report()
-    if (SUCCESS)
+    if (!FAILED)
       child_process.exec('nircmd beep 4000 50')
   })
 })
@@ -314,11 +315,10 @@ function analyseInputFile(item) {
 
 function runTests(cb) {
   fs.ensureDirSync(OUT_DIR);
-  console.log("start runTest, parallel compilers/test: %s/%s",
+  console.log("Start runTest, parallel compilers/test: %s/%s",
     cmdOptions.pc,
     cmdOptions.pt
   )
-  SUCCESS = true
   const iterateeCompiler = (testsForCompiler, compilerTitle, cb) => {
     fs.ensureDirSync(path.join(OUT_DIR, compilerTitle))
     async.eachLimit(
@@ -359,6 +359,9 @@ function runSingleTest(item, cb) {
       opt_ = Object.assign({ env: expected.env}, opt)
     }
     const child = child_process.exec(item.runCmd, opt_ || opt, (err, stdout, stderr) => {
+      if (cmdOptions.verbose) {
+        verboseExecResult(err, stdout, stderr)
+      }
       if (err && !item.outputRc) {
         if (stderr) console.log(stderr)
         return cb(err)
@@ -368,7 +371,7 @@ function runSingleTest(item, cb) {
           console.error(stderr)
           return cb(true)
         } else {
-          stdout = stderr.trim().replace(/Vim: Warning: (Input|Output) is not (from|to) a terminal\s+/gs, '')
+          stdout = stderr.trim()
         }
       }
       if (item.postCmd) {
@@ -406,13 +409,14 @@ function runSingleTest(item, cb) {
       const pad = [7, 30]
       const tmpTitle = item.alternativeForTitle || item.title
       if (result == expected.out) {
+        PASSED++
         console.log('%s %s passed',
           item.compilerTitle.padEnd(pad[0]),
           path.join(item.group, item.title).padEnd(pad[1])
         )
         fs.unlink(item.outputFullname, err => cb())
       } else {
-        SUCCESS = false
+        FAILED++
         console.log(
           '%s %s FAILED (see "%s")',
           item.compilerTitle.padEnd(pad[0]),
@@ -433,5 +437,33 @@ function report() {
   const compilersCount = compilers.length
   const testsCount = compilers.reduce((acc, key) => acc + TESTS[key].items.length, 0)
   const expectedCount = Object.keys(EXPECTED).length
-  console.log('Compilers/tests/expected: %s/%s/%s', compilersCount, testsCount, expectedCount)
+  console.log('\nCompilers/tests/unique: %s/%s/%s, passed/failed: %s/%s',
+    compilersCount,
+    testsCount,
+    expectedCount,
+    PASSED,
+    FAILED
+  )
+}
+
+function verboseExecResult(err, stdout, stderr) {
+  err && f('err', err)
+  stderr && f('stderr', stderr)
+  stdout && f('stdout', stdout)
+
+  function f(caption, obj) {
+    if (obj) {
+      console.log('=== %s ======', caption)
+      let tmp = obj
+      if (typeof obj == 'string'){
+        tmp = tmp
+          .replace(/(?<!\r)(\r\r\n)/g, '^r^r^n$1')
+          .replace(/(?<!\r)(\r\n)/g, '^r^n$1')
+          .replace(/(?<!\r)(\n)/g, '^n$1')
+          .replace(/\t/g, '^t')
+      }
+      console.log(tmp)
+      console.log('=== %s end ===', caption)
+    }
+  }
 }

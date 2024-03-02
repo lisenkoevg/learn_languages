@@ -12,6 +12,7 @@ function optionDefinitions() {
     { name: 'config', alias: 'c', type: Boolean, description: 'show compilers configuration' },
     { name: 'sequental', alias: 's', type: Boolean, description: 'set to 1 both parallel tests and parallel compilers type' },
     { name: 'parallel', alias: 'p', type: Boolean, description: 'set to 100 both parallel tests and parallel compilers type' },
+    { name: 'verbose', alias: 'v', type: Boolean, description: 'verbose compilers output of err, stdout, stderr' },
     { name: 'ic', type: String, defaultValue: '.', description: 'include filter by compiler' },
     { name: 'it', type: String, defaultValue: '.', description: 'include filter by test' },
     { name: 'ec', type: String, defaultValue: '', description: 'exclude filter by compiler' },

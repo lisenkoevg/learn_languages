@@ -57,7 +57,7 @@ const COMPILERS = {
   },
   cmd: {
     cmd: "cmd",
-    cmdArgs: "/c",
+    cmdArgs: "/d /c",
     title: "cmd",
     lineComment: "REM ",
     ext: '.bat',
@@ -83,11 +83,12 @@ const COMPILERS = {
   },
   vim: {
     cmd: "vim.bat",
-    cmdArgs: '-u',
+    cmdArgs: '--not-a-term -u',
     title: "vim",
     lineComment: "#",
     ext: '.vim',
     versionPattern: /(?<=VIM - Vi IMproved )[\d.]+/i,
+    postProcessStdout: { search: /(\r\r\n(<BR>)?)+/g, replace: '\n' }
   },
 }
 COMPILERS.cmd.postProcessStderr = COMPILERS.cmd.postProcessStdout
