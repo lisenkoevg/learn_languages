@@ -416,7 +416,7 @@ function runSingleTest(item, cb) {
       } else {
         result = ''
         if (item.outputStderr) {
-          let tmpOut = result.replace(/^(.+)$/gm, 'stdout: $1')
+          let tmpOut = stdout.replace(/^(.+)$/gm, 'stdout: $1')
           if (stderr) {
             let tmpErr = stderr
             tmpOut += tmpErr.replace(/^(.+)$/gm, 'stderr: $1')

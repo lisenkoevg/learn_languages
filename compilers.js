@@ -64,7 +64,8 @@ const COMPILERS = {
     ext: '.cs',
     versionCmd: '/help',
     versionPattern: /(?<=Microsoft \(R\) Visual C# Compiler version )[\d.]+/,
-    postProcessStdout: str => str.replace(/^Microsoft.*LinkID=\d+\s+/s, '').replace(/\r\n/g, '\n')
+    postProcessStdout: str => str.replace(/^Microsoft.*LinkID=\d+\s+/s, '').replace(/\r\n/g, '\n'),
+    postProcessStderr: str => str.replace(/\r\n/g, '\n')
   },
   winBatch: {
     cmd: 'cmd',
