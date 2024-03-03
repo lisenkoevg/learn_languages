@@ -383,7 +383,7 @@ function runSingleTest(item, cb) {
     const child = child_process.exec(item.runCmd, opt_ || opt, (err, stdout, stderr) => {
       const compiler = COMPILERS[item.compilerTitle]
       if (cmdOptions.verbose) {
-        verboseExecResult(err, stdout, stderr)
+        verboseExecResult({ err, stdout, stderr })
       }
       if (err && !item.outputRc) {
         if (stderr) console.error(stderr)
@@ -407,9 +407,8 @@ function runSingleTest(item, cb) {
         stdout = compiler.postProcessStdout(stdout)
       }
       if (compiler.postProcessStderr && stderr) {
-        stderr = compiler.postProcessStderr(stderr)
+        stderr = compiler.postProcessStderr(stderr, item.fullname)
       }
-
       let result
       if (!item.outputRc && !item.outputStderr) {
         result = stdout
@@ -474,10 +473,8 @@ function verboseExecParams(cmd, opt) {
   console.log('=== end cmd & options ==')
 }
 
-function verboseExecResult(err, stdout, stderr) {
-  f('err', err)
-  f('stdout', stdout)
-  f('stderr', stderr)
+function verboseExecResult(obj) {
+  for (let k in obj) f(k, obj[k])
   function f(caption, obj) {
     console.log('=== %s ======', caption)
     let tmp = obj
@@ -487,6 +484,7 @@ function verboseExecResult(err, stdout, stderr) {
         .replace(/(?<!\r)(\r\n)/g, '^r^n$1')
         .replace(/(?<!\r)(\n)/g, '^n$1')
         .replace(/\t/g, '^t')
+        .replace(/ /g, '\xb7') // middle dot
     }
     tmp && console.log(tmp)
     console.log('=== %s end ===', caption)

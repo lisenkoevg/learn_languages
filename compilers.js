@@ -67,6 +67,25 @@ const COMPILERS = {
     ext: '.js',
     versionPattern: /(?<=v)[\d.]+/,
   },
+  powershell: {
+    cmd: 'powershell',
+    cmdArgs: '-file ./:FILE',
+    title: 'powershell',
+    lineComment: '#',
+    ext: '.ps1',
+    versionCmd: '$PSVersionTable.PsVersion.ToString()',
+    versionPattern: /[\d.]+/,
+    postProcessStdout: str => str.replace(/\r\n/g, '\n'),
+    postProcessStderr: (str, fullname) => {
+      const n = fullname.replace(/\\/g, '\\\\')
+//       const re = new RegExp('(?:^|\\r\\n)..[^:]+' + n + ' : (.*?\\r\\n)At line:.*?\\r\\n (?=\\r\\n)', 'sg')
+//       let res = str.replace(re, '$1').replace(/\r\n$/, '')
+      const re = new RegExp('(?:^|\\r\\n)..[^:]+' + n + ' : (.*?\\r\\n) {4}\\+ CategoryInfo.*?\\r\\n (?=\\r\\n)', 'sg')
+      let res = str.replace(re, '$1').replace(/\r\n$/, '')
+      res = res.replace(/\r\n/g, '\n')
+      return res
+    }
+  },
   python: {
     cmd: 'python3.9',
     cmdArgs: '',
@@ -102,9 +121,9 @@ const COMPILERS = {
     versionCmd: '/c ver',
     versionPattern: /(?<=Microsoft Windows \[Version )[\d.]+/,
     postProcessStdout: str => str.replace(/\r\n/g, '\n'),
+    postProcessStderr: str => str.replace(/\r\n/g, '\n'),
   },
 }
-COMPILERS.winBatch.postProcessStderr = COMPILERS.winBatch.postProcessStdout
 const defaultVersionCmd = '--version'
 for (v in COMPILERS) {
   COMPILERS[v].versionCmd = COMPILERS[v].versionCmd || defaultVersionCmd
