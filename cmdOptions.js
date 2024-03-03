@@ -8,11 +8,13 @@ const cmdOptions = tryCmdOptions()
 function optionDefinitions() {
   return [
     { name: 'help', alias: 'h', type: Boolean, description: 'show this help' },
+    { name: 'run', alias: 'r', type: Boolean, description: 'run tests' },
     { name: 'dry-run', alias: 'n', type: Boolean, description: 'don\'n run tests, but show tests and expected files' },
     { name: 'config', alias: 'c', type: Boolean, description: 'show compilers configuration' },
     { name: 'sequental', alias: 's', type: Boolean, description: 'set to 1 both parallel tests and parallel compilers type' },
     { name: 'parallel', alias: 'p', type: Boolean, description: 'set to 100 both parallel tests and parallel compilers type' },
     { name: 'verbose', alias: 'v', type: Boolean, description: 'verbose compilers output of err, stdout, stderr' },
+    { name: 'versions', alias: 'V', type: Boolean, description: 'try to get versions for compilers' },
     { name: 'ic', type: String, defaultValue: '.', description: 'include filter by compiler' },
     { name: 'it', type: String, defaultValue: '.', description: 'include filter by test' },
     { name: 'ec', type: String, defaultValue: '', description: 'exclude filter by compiler' },

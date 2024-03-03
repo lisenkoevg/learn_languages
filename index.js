@@ -31,7 +31,7 @@ if (cmdOptions.help || !validateCmdOptions()) {
   usage()
   process.exit(1)
 }
-const { COMPILERS, trySaveCompilersVersion } = require('./compilers')
+const { COMPILERS, getCompilersVersion } = require('./compilers')
 const TESTS = {}
 const EXPECTED = {}
 
@@ -64,15 +64,20 @@ let FAILED = 0
 
   tests/bash/dir_with_no_suffix/ - tests group
 */
-
 if (cmdOptions.config) {
   pretty(COMPILERS, 'COMPILERS')
   pretty(cmdOptions, 'cmdOptions')
-  process.exit()
+  return
+}
+if (cmdOptions.versions) {
+  getCompilersVersion((err, res) => {
+    pretty(res)
+  }, true)
+  return
 }
 console.time('elapsed')
 async.series([
-  trySaveCompilersVersion,
+  getCompilersVersion,
   readTests,
   readExpected,
 ], (err, res) => {
@@ -87,23 +92,28 @@ async.series([
     return
   }
   if (cmdOptions['dry-run']) {
-    pretty(TESTS, 'TESTS')
-    pretty(EXPECTED, 'EXPECTED')
+    if (cmdOptions.verbose) {
+      pretty(TESTS, 'TESTS')
+      pretty(EXPECTED, 'EXPECTED')
+    } else {
+      showShortTestList()
+    }
     report()
     console.timeEnd('elapsed')
-    process.exit()
   }
-  runTests((err, res) => {
-    if (err)
-      console.error('runTests error: %j', err)
-    if (res)
-      console.log('runTests res: %j', res)
-    removeEmptyDirs(OUT_DIR)
-    report()
-    console.timeEnd('elapsed')
-    if (!FAILED)
-      child_process.exec('nircmd beep 4000 50')
-  })
+  if (cmdOptions.run) {
+    runTests((err, res) => {
+      if (err)
+        console.error('runTests error: %j', err)
+      if (res)
+        console.log('runTests res: %j', res)
+      removeEmptyDirs(OUT_DIR)
+      report()
+      console.timeEnd('elapsed')
+      if (!FAILED)
+        child_process.exec('nircmd beep 4000 50')
+    })
+  }
 })
 
 function readTests(cb) {
@@ -489,4 +499,13 @@ function verboseExecResult(obj) {
     tmp && console.log(tmp)
     console.log('=== %s end ===', caption)
   }
+}
+
+function showShortTestList() {
+  Object.keys(TESTS).forEach(compilerTitle => {
+    console.log('%s', compilerTitle)
+    TESTS[compilerTitle].items.forEach(test => {
+      console.log('  %s', path.join(test.group, test.name))
+    })
+  })
 }

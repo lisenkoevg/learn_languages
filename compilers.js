@@ -26,7 +26,7 @@ const COMPILERS = {
     title: 'c_sharp',
     lineComment: '//',
     ext: '.cs',
-    versionCmd: '/help',
+    versionArgs: '/help',
     versionPattern: /(?<=Microsoft \(R\) Visual C# Compiler version )[\d.]+/,
     postProcessStdout: str => str.replace(/^Microsoft.*LinkID=\d+\s+/s, '').replace(/\r\n/g, '\n'),
     postProcessStderr: str => str.replace(/\r\n/g, '\n')
@@ -73,7 +73,7 @@ const COMPILERS = {
     title: 'powershell',
     lineComment: '#',
     ext: '.ps1',
-    versionCmd: '$PSVersionTable.PsVersion.ToString()',
+    versionArgs: '$PSVersionTable.PsVersion.ToString()',
     versionPattern: /[\d.]+/,
     postProcessStdout: str => str.replace(/\r\n/g, '\n'),
     postProcessStderr: (str, fullname) => {
@@ -118,42 +118,60 @@ const COMPILERS = {
     title: 'winBatch',
     lineComment: 'REM ',
     ext: '.bat',
-    versionCmd: '/c ver',
+    versionArgs: '/c ver',
     versionPattern: /(?<=Microsoft Windows \[Version )[\d.]+/,
     postProcessStdout: str => str.replace(/\r\n/g, '\n'),
     postProcessStderr: str => str.replace(/\r\n/g, '\n'),
   },
 }
-const defaultVersionCmd = '--version'
+const defaultversionArgs = '--version'
 for (v in COMPILERS) {
-  COMPILERS[v].versionCmd = COMPILERS[v].versionCmd || defaultVersionCmd
+  COMPILERS[v].versionArgs = COMPILERS[v].versionArgs || defaultversionArgs
 }
 
-function trySaveCompilersVersion(cb) {
+function getCompilersVersion(cb, handleNotExisted) {
   const iteratee = (compiler, title, cb) => {
-    const cmd = `${compiler.cmd} ${compiler.versionCmd}`
+    const cmd = `${compiler.cmd} ${compiler.versionArgs}`
     exec(cmd, { encoding: 'utf8' }, (err, stdout, stderr) => {
-      if (err || stderr) {
-        return cb(err || stderr)
+      if (!handleNotExisted) {
+        if (err || stderr) {
+          return cb(err || stderr)
+        } else {
+          const ma = stdout.match(compiler.versionPattern)
+          cb(null, ma[0])
+        }
+      } else {
+        if (err || stderr) {
+          cb(null, `failed to get version with "${cmd}"`)
+        } else {
+          const ma = stdout.match(compiler.versionPattern)
+          cb(null, ma[0])
+        }
       }
-      const ma = stdout.match(compiler.versionPattern)
-      cb(null, ma[0])
+
     })
   }
-  async.mapValues(COMPILERS, iteratee, (err, res) => {
+  async.mapValuesLimit(COMPILERS, 3, iteratee, (err, res) => {
     if (err) {
-      console.error(err)
-      process.exit(1)
+      return cb(err)
     }
-    const result = stringify(res, { space: 2 })
-    fs.readFile('ver.json', { encoding: 'utf8' }, (err, res) => {
-      if (err && err.code != 'ENOENT')
-        return cb(err)
-      if (res != result)
-        fs.writeFile('ver.json', result, cb)
-      else
-        cb()
-    })
+    if (handleNotExisted)
+      return cb(null, res)
+    trySaveCompilersVersion(res, cb)
   })
 }
-module.exports = { COMPILERS, trySaveCompilersVersion }
+
+function trySaveCompilersVersion(obj, cb) {
+  const result = stringify(obj, { space: 2 })
+  fs.readFile('ver.json', { encoding: 'utf8' }, (err, res) => {
+    if (err && err.code != 'ENOENT')
+      return cb(err)
+    if (res != result) {
+      fs.writeFile('ver.json', result, cb)
+    } else {
+      cb()
+    }
+  })
+}
+
+module.exports = { COMPILERS, getCompilersVersion }
