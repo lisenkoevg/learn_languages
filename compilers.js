@@ -94,13 +94,13 @@ const COMPILERS = {
     versionPattern: /(?<=ruby )[\d.]+/,
   },
   vim: {
-    cmd: 'vim.bat',
+    cmd: 'vim',
     cmdArgs: '--not-a-term -u',
     title: 'vim',
     lineComment: '#',
     ext: '.vim',
     versionPattern: /(?<=VIM - Vi IMproved )[\d.]+/i,
-    postProcessStdout: str => str.replace(/(\r\r\n(<BR>)?)+/g, '\n')
+    postProcessStdout: str => str.replace(/(\r\r\n(<BR>)?){1,2}/g, '\n')
   },
 }
 COMPILERS.winBatch.postProcessStderr = COMPILERS.winBatch.postProcessStdout
