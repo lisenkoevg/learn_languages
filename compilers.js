@@ -67,6 +67,14 @@ const COMPILERS = {
     ext: '.js',
     versionPattern: /(?<=v)[\d.]+/,
   },
+  php: {
+    cmd: 'php',
+    cmdArgs: '',
+    title: 'php',
+    lineComment: '//',
+    ext: '.php',
+    versionPattern: /(?<=PHP )[\d.]+/,
+  },
   powershell: {
     cmd: 'powershell',
     cmdArgs: '-file ./:FILE',
@@ -133,22 +141,14 @@ function getCompilersVersion(cb, handleNotExisted) {
   const iteratee = (compiler, title, cb) => {
     const cmd = `${compiler.cmd} ${compiler.versionArgs}`
     exec(cmd, { encoding: 'utf8' }, (err, stdout, stderr) => {
-      if (!handleNotExisted) {
-        if (err || stderr) {
+      if (err || stderr) {
+        if (!handleNotExisted)
           return cb(err || stderr)
-        } else {
-          const ma = stdout.match(compiler.versionPattern)
-          cb(null, ma[0])
-        }
-      } else {
-        if (err || stderr) {
-          cb(null, `failed to get version with "${cmd}"`)
-        } else {
-          const ma = stdout.match(compiler.versionPattern)
-          cb(null, ma[0])
-        }
+        else
+          return cb(null, `failed to get version with "${cmd}"`)
       }
-
+      const ma = stdout.match(compiler.versionPattern)
+      cb(null, ma[0])
     })
   }
   async.mapValuesLimit(COMPILERS, 3, iteratee, (err, res) => {
