@@ -19,11 +19,11 @@ const COMPILERS = {
     ext: '.sh',
     versionPattern: /(?<=GNU bash, version )[\d.]+/,
   },
-  c_sharp:{
+  'C#':{
     cmd: 'csc',
     cmdArgs: '/out:":FILE.exe" ":FILE" && ":FILE.exe"',
     postCmd: 'rm -f ":FILE.exe"',
-    title: 'c_sharp',
+    title: 'C#',
     lineComment: '//',
     ext: '.cs',
     versionArgs: '/help',
