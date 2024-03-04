@@ -36,7 +36,7 @@ const {
   getCompilersVersion,
   isCompilerIncluded,
   isTestIncluded
-} = require('./compilers')(cmdOptions)
+} = require('./compilers')({ cmdOptions, SHELL })
 const TESTS = {}
 const EXPECTED = {}
 

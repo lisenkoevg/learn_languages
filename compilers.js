@@ -1,4 +1,5 @@
-module.exports = cmdOptions => {
+module.exports = params => {
+  const { cmdOptions, SHELL } = params
   const fs = require('fs-extra')
   const { exec } = require('child_process')
   const async = require('async')
@@ -42,7 +43,7 @@ module.exports = cmdOptions => {
       ext: '.awk',
       versionPattern: /(?<=GNU Awk )[\d.]+/,
     },
-     'g++': {
+    'g++': {
        cmd: 'g++',
   //     preCmd: 'g++ -MM ":FILE"',
   //     preCmdResult: (stdout => (stdout.match(/\b[^.\s]+\.h\b/g) || []).map(x => '"' + x.replace(/\.h/,'.c') + '"').join(' '),
@@ -53,7 +54,7 @@ module.exports = cmdOptions => {
        lineComment: '//',
        ext: '.cpp',
        versionPattern: /(?<=g\+\+ \(GCC\) )[\d.]+/,
-     },
+    },
     gcc: {
       cmd: 'gcc',
       preCmd: 'gcc -MM ":FILE"',
@@ -64,6 +65,15 @@ module.exports = cmdOptions => {
       lineComment: '//',
       ext: '.c',
       versionPattern: /(?<=gcc \(GCC\) )[\d.]+/,
+    },
+    lua: {
+      cmd: 'lua',
+      cmdArgs: '',
+      title: 'lua',
+      lineComment: '--',
+      ext: '.lua',
+      versionArgs: '-v',
+      versionPattern: /(?<=Lua )[\d.]+/,
     },
     make: {
       cmd: 'make',
@@ -96,7 +106,7 @@ module.exports = cmdOptions => {
       title: 'powershell',
       lineComment: '#',
       ext: '.ps1',
-      versionArgs: '$PSVersionTable.PsVersion.ToString()',
+      versionArgs: "'$PSVersionTable.PsVersion.ToString()'",
       versionPattern: /[\d.]+/,
       postProcessStdout: str => str.replace(/\r\n/g, '\n'),
       postProcessStderr: (str, fullname) => {
@@ -160,7 +170,9 @@ module.exports = cmdOptions => {
     })
     const iteratee = (compiler, title, cb) => {
       const cmd = `${compiler.cmd} ${compiler.versionArgs}`
-      exec(cmd, { encoding: 'utf8' }, (err, stdout, stderr) => {
+      if (cmdOptions.verbose)
+        console.log(cmd)
+      exec(cmd, { encoding: 'utf8', shell: SHELL }, (err, stdout, stderr) => {
         if (err || stderr) {
           if (!handleNotExisted) {
             const advice = '\nTry to exclude it with filter.'
