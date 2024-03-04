@@ -8,6 +8,8 @@ function pretty(obj, caption) {
   let replacer = (key, val) => {
     if (val instanceof RegExp || typeof val == 'function')
       val = val.toString()
+    if (val === undefined)
+      val = '<undefined>'
     return val
   }
   if (caption) console.log(caption + ':')

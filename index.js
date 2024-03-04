@@ -12,11 +12,11 @@ const {
   optionDefinitions,
   tryCmdOptions,
   validateCmdOptions,
-  usage
+  usage,
 } = require('./cmdOptions')
 const { pretty, removeEmptyDirs, strHex } = require('./lib')
 
-const BASH='c:/cygwin64/bin/bash.exe'
+const SHELL = 'c:/cygwin64/bin/sh.exe'
 const PROJECT_DIR = '.'
 const TESTS_DIR_NAME = 'tests'
 const TESTS_DIR = path.join(PROJECT_DIR, TESTS_DIR_NAME)
@@ -31,7 +31,12 @@ if (cmdOptions.help || !validateCmdOptions()) {
   usage()
   process.exit(1)
 }
-const { COMPILERS, getCompilersVersion } = require('./compilers')
+const {
+  COMPILERS,
+  getCompilersVersion,
+  isCompilerIncluded,
+  isTestIncluded
+} = require('./compilers')(cmdOptions)
 const TESTS = {}
 const EXPECTED = {}
 
@@ -110,7 +115,7 @@ async.series([
       removeEmptyDirs(OUT_DIR)
       report()
       console.timeEnd('elapsed')
-      if (!FAILED)
+      if (!FAILED && PASSED)
         child_process.exec('nircmd beep 4000 50')
     })
   }
@@ -152,9 +157,7 @@ function processDirEntry(de, cb) {
       readTests.skipDir.push(path.join(de.path, de.name))
       return cb()
     }
-    if (!cmdOptions.ic.test(de.name))
-      return cb()
-    if (cmdOptions.ec && cmdOptions.ec.test(de.name))
+    if (!isCompilerIncluded(de.name))
       return cb()
     readTestsResult[de.name] = { items: [] }
     return cb()
@@ -214,17 +217,13 @@ function processDirEntryLevel(de) {
   }
   const tmpTitle = test.alternativeForTitle || test.title
   test.group = splittedPath.slice(2).join(path.sep)
-  if (!cmdOptions.it.test(test.group + ' ' + tmpTitle))
-    return
-  if (cmdOptions.et && cmdOptions.et.test(test.group + ' ' + tmpTitle))
+  if (!isTestIncluded(test.group + ' ' + tmpTitle))
     return
   test.parentDir = splittedPath.at(1)
   test.path = path.join(PROJECT_DIR, de.path)
   test.fullname = path.join(test.path, name)
   test.compilerTitle = test.parentDir
-  if (!cmdOptions.ic.test(test.compilerTitle))
-    return
-  if (cmdOptions.ec && cmdOptions.ec.test(test.compilerTitle))
+  if (!isCompilerIncluded(test.compilerTitle))
     return
   test.outputName = test.title + OUT_EXT
   test.outputPath = path.join(OUT_DIR_NAME, test.compilerTitle, test.group)
@@ -322,9 +321,9 @@ function readExpected(cb) {
 function analyseInputFile(item) {
   if (!item.in) return
   let input = item.in.split(/\n/).slice(0, LINES_TO_ANALYSE).join('\n')
-  let matchEnv = input.match(/\s*#env\s+(?<env>[^\n|$]+)\s*/)
+  let matchEnv = input.match(/\s*#env\s+(?<env>[^\n]+)\s*/)
   if (matchEnv) {
-    item.env = matchEnv[1].split(' ').reduce((acc, cur) => {
+    item.env = matchEnv[1].split(/ +/).reduce((acc, cur) => {
       let v = cur.split('=')
       acc[v[0]] = v[1]
       return acc
@@ -338,10 +337,11 @@ function analyseInputFile(item) {
 function runTests(cb) {
   fs.ensureDirSync(OUT_DIR);
   if (!cmdOptions['dry-run'])
-    console.log("Start tests, parallel compilers/test: %s/%s\n",
+    console.log("Start tests, parallel compilers/test: %s/%s",
       cmdOptions.pc,
       cmdOptions.pt
     )
+    !cmdOptions.quiet && console.log()
   const iterateeCompiler = (testsForCompiler, compilerTitle, cb) => {
     fs.ensureDirSync(path.join(OUT_DIR, compilerTitle))
     async.eachLimit(
@@ -354,7 +354,7 @@ function runTests(cb) {
 }
 
 function runSingleTest(item, cb) {
-  const opt = { cwd: item.path, encoding: 'utf8' }
+  const opt = { cwd: item.path, encoding: 'utf8', shell: SHELL }
   if (item.preCmd) {
     child_process.exec(item.preCmd, opt, (err, stdout, stderr) => {
       if (err && !item.outputRc) {
@@ -365,16 +365,12 @@ function runSingleTest(item, cb) {
         console.error(stderr)
         return cb(true)
       }
-      item.runCmd = item.runCmd.replace(
-        /:PRECMDRESULT\b/,
-        item.preCmdResult(stdout)
-      )
-      mainRunner()
+      mainRunner(stdout)
     })
   } else {
     mainRunner()
   }
-  function mainRunner() {
+  function mainRunner(preCmdStdout) {
     const tmpTitle = item.alternativeForTitle || item.title
     const expected = EXPECTED[path.join(item.group, tmpTitle)]
     let opt_
@@ -388,6 +384,11 @@ function runSingleTest(item, cb) {
         item.runCmd = compiler.alterCmdWithArgs(item)
       }
     }
+    if (preCmdStdout || /:PRECMDRESULT\b/.test(item.runCmd))
+      item.runCmd = item.runCmd.replace(
+        /:PRECMDRESULT\b/,
+        item.preCmdResult(preCmdStdout, expected.env)
+      )
     if (cmdOptions.verbose)
       verboseExecParams(item.runCmd, opt_ || opt)
     const child = child_process.exec(item.runCmd, opt_ || opt, (err, stdout, stderr) => {
@@ -441,7 +442,7 @@ function runSingleTest(item, cb) {
       const tmpTitle = item.alternativeForTitle || item.title
       if (result == expected.out) {
         PASSED++
-        console.log('%s %s passed',
+        !cmdOptions.quiet && console.log('%s %s passed',
           item.compilerTitle.padEnd(pad[0]),
           path.join(item.group, item.title).padEnd(pad[1])
         )
@@ -468,7 +469,8 @@ function report() {
   const compilersCount = compilers.length
   const testsCount = compilers.reduce((acc, key) => acc + TESTS[key].items.length, 0)
   const expectedCount = Object.keys(EXPECTED).length
-  console.log('\nCompilers/tests/unique: %s/%s/%s%s',
+  !cmdOptions.quiet && console.log()
+  console.log('Compilers/tests/unique: %s/%s/%s%s',
     compilersCount,
     testsCount,
     expectedCount,
