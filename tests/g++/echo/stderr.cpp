@@ -1,4 +1,3 @@
-// #stderr
 #include <iostream>
 
 using namespace std;

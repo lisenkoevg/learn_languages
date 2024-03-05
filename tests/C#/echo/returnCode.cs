@@ -1,4 +1,3 @@
-// #rc
 using System;
 
 internal class Program {

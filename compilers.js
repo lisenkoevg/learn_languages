@@ -37,7 +37,7 @@ module.exports = params => {
       cmd: 'gawk',
       cmdArgs: '-f',
       cmdArgs: ':PRECMDRESULT -f',
-      preCmdResult: (s, env) => env && Object.keys(env).map(name => `-v ${name}=${env[name]}`).join(' ') || '',
+      preCmdResult: (s, env) => env && Object.keys(env).map(name => `-v ${name}="${env[name]}"`).join(' ') || '',
       title: 'gawk',
       lineComment: '#',
       ext: '.awk',

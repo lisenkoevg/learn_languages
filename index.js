@@ -15,6 +15,7 @@ const {
   usage,
 } = require('./cmdOptions')
 const { pretty, removeEmptyDirs, strHex } = require('./lib')
+const { parseTags } = require('./parseTags')
 
 const SHELL = 'c:/cygwin64/bin/sh.exe'
 const PROJECT_DIR = '.'
@@ -69,6 +70,7 @@ let FAILED = 0
 
   tests/bash/dir_with_no_suffix/ - tests group
 */
+
 if (cmdOptions.config) {
   pretty(COMPILERS, 'COMPILERS')
   pretty(cmdOptions, 'cmdOptions')
@@ -166,16 +168,8 @@ function processDirEntry(de, cb) {
     if (!dirEntryLevelResult)
       return cb()
     const { test, compiler } = dirEntryLevelResult
-    analyseTestFileHeader(test.fullname, compiler.lineComment, (err, r) => {
-      if (err) return cb(err.message)
-      const { outputRc, outputStderr } = r
-      if (outputRc)
-        test.outputRc = outputRc
-      if (outputStderr)
-        test.outputStderr = outputStderr
-      readTestsResult[test.compilerTitle].items.push(test)
-      return cb()
-    })
+    readTestsResult[test.compilerTitle].items.push(test)
+    return cb()
   }
 }
 
@@ -265,23 +259,6 @@ function processDirEntryLevel(de) {
   return { test, compiler }
 }
 
-// search for special tags #rc, #stderr in first N line comments
-function analyseTestFileHeader(file, lineComment, cb) {
-  const fnEscape = str => str.replace(/(\/)/g, '\\$1')
-  const r = { outputRc: false, outputStderr: false }
-  fs.readFile(file, { encoding: 'utf8' }, (err, res) => {
-    if (err) return cb(err)
-    let re = new RegExp('(?<=' + fnEscape(lineComment) + ').*$', 'gmi')
-    let commentsArr = res.match(re)
-    if (commentsArr) {
-      const comments = commentsArr.slice(0, LINES_TO_ANALYSE).join(' ')
-      r.outputRc = /#rc/.test(comments)
-      r.outputStderr = /#stderr/.test(comments)
-    }
-    cb(null, r)
-  })
-}
-
 function readExpected(cb) {
   const limitExpected = 1
   const tmp = readTests.result
@@ -311,27 +288,35 @@ function readExpected(cb) {
         cb(null, res)
       })
     }, (err, res) => {
-      if (err) return cb(err)
-      analyseInputFile(res)
-      cb(null, res)
+//       if (err) return cb(err) // keep this line commented for ./output/... file created if ./expected/... file is absent
+      analyseInputFile(res, cb)
     })
   }, cb)
 }
 
-function analyseInputFile(item) {
-  if (!item.in) return
-  let input = item.in.split(/\n/).slice(0, LINES_TO_ANALYSE).join('\n')
-  let matchEnv = input.match(/\s*#env\s+(?<env>[^\n]+)\s*/)
-  if (matchEnv) {
-    item.env = matchEnv[1].split(/ +/).reduce((acc, cur) => {
-      let v = cur.split('=')
-      acc[v[0]] = v[1]
-      return acc
-    }, {})
+function analyseInputFile(item, cb) {
+  if (!item.in)
+    return setImmediate(cb, null, item)
+  let headerLines = []
+  let inputContentLines = []
+  item.in.split(/\n/).forEach(x => {
+    if (!/^\s*#/.test(x))
+      inputContentLines.push(x)
+    else
+      headerLines.push(x)
+  })
+  let result = {
+    out: item.out
   }
-  let matchArgs = input.match(/\s*#args\s+(?<args>.*)\s*/)
-  if (matchArgs)
-    item.args = matchArgs[1].trim()
+  try {
+    Object.assign(result, parseTags(headerLines.join('\n')))
+  } catch (err) {
+    return setImmediate(cb, err)
+  }
+  result.in = inputContentLines.join('\n')
+  if (Array.isArray(result.args))
+    result.args = result.args.map(x => `"${x}"`).join(' ')
+  setImmediate(cb, null, result)
 }
 
 function runTests(cb) {
@@ -355,13 +340,15 @@ function runTests(cb) {
 
 function runSingleTest(item, cb) {
   const opt = { cwd: item.path, encoding: 'utf8', shell: SHELL }
+  const tmpTitle = item.alternativeForTitle || item.title
+  const expected = EXPECTED[path.join(item.group, tmpTitle)]
   if (item.preCmd) {
     child_process.exec(item.preCmd, opt, (err, stdout, stderr) => {
-      if (err && !item.outputRc) {
+      if (err && !expected.outputRc) {
         if (stderr) console.log(stderr)
         return cb(err)
       }
-      if (stderr.length && !item.outputStderr) {
+      if (stderr.length && !expected.outputStderr) {
         console.error(stderr)
         return cb(true)
       }
@@ -371,8 +358,6 @@ function runSingleTest(item, cb) {
     mainRunner()
   }
   function mainRunner(preCmdStdout) {
-    const tmpTitle = item.alternativeForTitle || item.title
-    const expected = EXPECTED[path.join(item.group, tmpTitle)]
     let opt_
     if (expected.env) {
       opt_ = Object.assign({ env: expected.env}, opt)
@@ -396,12 +381,12 @@ function runSingleTest(item, cb) {
       if (cmdOptions.verbose) {
         verboseExecResult({ err, stdout, stderr })
       }
-      if (err && !item.outputRc) {
+      if (err && !expected.outputRc) {
         if (stderr) console.error(stderr)
         if (stdout) console.error(compiler.postProcessStdout && compiler.postProcessStdout(stdout).trim() || stdout)
         return cb(err)
       }
-      if (stderr.length && !item.outputStderr) {
+      if (stderr.length && !expected.outputStderr) {
         if (item.compilerTitle != 'vim') {
           console.error(stderr)
           return cb(true)
@@ -421,11 +406,11 @@ function runSingleTest(item, cb) {
         stderr = compiler.postProcessStderr(stderr, item.fullname)
       }
       let result
-      if (!item.outputRc && !item.outputStderr) {
+      if (!expected.outputRc && !expected.outputStderr) {
         result = stdout
       } else {
         result = ''
-        if (item.outputStderr) {
+        if (expected.outputStderr) {
           let tmpOut = stdout.replace(/^(.+)$/gm, 'stdout: $1')
           if (stderr) {
             let tmpErr = stderr
@@ -433,7 +418,7 @@ function runSingleTest(item, cb) {
           }
           result = tmpOut
         }
-        if (item.outputRc) {
+        if (expected.outputRc) {
           result = result + 'rc: ' + child.exitCode
         }
       }

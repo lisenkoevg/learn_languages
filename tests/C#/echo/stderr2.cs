@@ -1,4 +1,3 @@
-// #stderr
 using System;
 
 internal class Program {

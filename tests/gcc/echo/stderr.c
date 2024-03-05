@@ -1,5 +1,4 @@
 #include <stdio.h>
-// #stderr
 
 int main() {
   fprintf(stderr, "%s\n", "line written to stderr");

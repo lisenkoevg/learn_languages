@@ -1,6 +1,4 @@
 <?php
-// #stderr
-
 $old_error_log = ini_get('error_log');
 ini_set('error_log', '');
 error_log('line written to stderr');
