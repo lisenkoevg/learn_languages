@@ -164,7 +164,7 @@ module.exports = params => {
     })
     const iteratee = (compiler, title, cb) => {
       const cmd = `${compiler.cmd} ${compiler.versionArgs}`
-      if (cmdOptions.verbose)
+      if (cmdOptions.verbose && cmdOptions.versions)
         console.log(cmd)
       exec(cmd, { encoding: 'utf8', shell: SHELL }, (err, stdout, stderr) => {
         if (err || stderr) {
