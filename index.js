@@ -8,13 +8,11 @@ const async = require('async')
 const stringify = require('json-stable-stringify')
 
 const {
-  cmdOptions,
-  optionDefinitions,
-  tryCmdOptions,
+  cmdOpts,
   validateCmdOptions,
   usage,
 } = require('./cmdOptions')
-const { pretty, removeEmptyDirs, strHex } = require('./lib')
+const { pretty, removeEmptyDirs, verboseExecParams, verboseExecResult } = require('./lib')
 const { parseTags } = require('./parseTags')
 
 const SHELL = 'c:/cygwin64/bin/sh.exe'
@@ -28,7 +26,7 @@ const OUT_DIR_NAME = 'output'
 const OUT_DIR = path.join(PROJECT_DIR, OUT_DIR_NAME)
 const IN_EXT = '.in'
 
-if (cmdOptions.help || !validateCmdOptions()) {
+if (cmdOpts._all.help || !validateCmdOptions()) {
   usage()
   process.exit(1)
 }
@@ -37,7 +35,7 @@ const {
   getCompilersVersion,
   isCompilerIncluded,
   isTestIncluded
-} = require('./compilers')({ cmdOptions, SHELL })
+} = require('./compilers')({ cmdOpts, SHELL })
 const TESTS = {}
 const EXPECTED = {}
 
@@ -46,19 +44,19 @@ const LINES_TO_ANALYSE = 5
 let PASSED = 0
 let FAILED = 0
 
-
-if (cmdOptions.config) {
-  pretty(COMPILERS, 'COMPILERS')
-  pretty(cmdOptions, 'cmdOptions')
-  return
-}
-if (cmdOptions.versions) {
-  getCompilersVersion((err, res) => {
-    pretty(res)
-  }, true)
+if (cmdOpts._all.config) {
+  showCompilersConfig()
+  pretty(cmdOpts, 'cmdOptions')
   return
 }
 console.time('elapsed')
+if (cmdOpts._all.versions) {
+  getCompilersVersion((err, res) => {
+    pretty(res)
+    console.timeEnd('elapsed')
+  }, true)
+  return
+}
 async.series([
   getCompilersVersion,
   readTests,
@@ -74,8 +72,8 @@ async.series([
     console.timeEnd('elapsed')
     return
   }
-  if (cmdOptions['dry-run']) {
-    if (cmdOptions.verbose) {
+  if (cmdOpts._all['dry-run']) {
+    if (cmdOpts._all.verbose) {
       pretty(TESTS, 'TESTS')
       pretty(EXPECTED, 'EXPECTED')
     } else {
@@ -84,7 +82,7 @@ async.series([
     report()
     console.timeEnd('elapsed')
   }
-  if (cmdOptions.run) {
+  if (cmdOpts._all.run) {
     runTests((err, res) => {
       if (err)
         console.error('runTests error: %j', err)
@@ -95,6 +93,8 @@ async.series([
       console.timeEnd('elapsed')
       if (!FAILED && PASSED)
         child_process.exec('nircmd beep 4000 50')
+      else
+        process.exit(1)
     })
   }
 })
@@ -297,21 +297,21 @@ function analyseInputFile(item, cb) {
 
 function runTests(cb) {
   fs.ensureDirSync(OUT_DIR);
-  if (!cmdOptions['dry-run'])
+  if (!cmdOpts._all['dry-run'])
     console.log("Start tests, parallel compilers/test: %s/%s",
-      cmdOptions.pc,
-      cmdOptions.pt
+      cmdOpts._all.pc,
+      cmdOpts._all.pt
     )
-    !cmdOptions.quiet && console.log()
+    !cmdOpts._all.quiet && console.log()
   const iterateeCompiler = (testsForCompiler, compilerTitle, cb) => {
     fs.ensureDirSync(path.join(OUT_DIR, compilerTitle))
     async.eachLimit(
       testsForCompiler.items,
-      cmdOptions.pt,
+      cmdOpts._all.pt,
       runSingleTest,
     cb)
   }
-  async.eachOfLimit(TESTS, cmdOptions.pc, iterateeCompiler, cb)
+  async.eachOfLimit(TESTS, cmdOpts._all.pc, iterateeCompiler, cb)
 }
 
 function runSingleTest(item, cb) {
@@ -350,11 +350,11 @@ function runSingleTest(item, cb) {
         /:PRECMDRESULT\b/,
         item.preCmdResult(preCmdStdout, expected.env)
       )
-    if (cmdOptions.verbose)
+    if (cmdOpts._all.verbose)
       verboseExecParams(item.runCmd, opt_ || opt)
     const child = child_process.exec(item.runCmd, opt_ || opt, (err, stdout, stderr) => {
       const compiler = COMPILERS[item.compilerTitle]
-      if (cmdOptions.verbose) {
+      if (cmdOpts._all.verbose) {
         verboseExecResult({ err, stdout, stderr })
       }
       if (err && !expected.outputRc) {
@@ -403,7 +403,7 @@ function runSingleTest(item, cb) {
       const tmpTitle = item.alternativeForTitle || item.title
       if (result == expected.out) {
         PASSED++
-        !cmdOptions.quiet && console.log('%s %s passed',
+        !cmdOpts._all.quiet && console.log('%s %s passed',
           item.compilerTitle.padEnd(pad[0]),
           path.join(item.group, item.title).padEnd(pad[1])
         )
@@ -425,43 +425,28 @@ function runSingleTest(item, cb) {
   }
 }
 
+function showCompilersConfig() {
+  pretty(Object.keys(COMPILERS).reduce(
+    (acc, cur) => {
+      if (isCompilerIncluded(cur)) acc[cur] = COMPILERS[cur]
+      return acc
+    },
+    {}
+  ), 'COMPILERS')
+}
+
 function report() {
   const compilers = Object.keys(TESTS)
   const compilersCount = compilers.length
   const testsCount = compilers.reduce((acc, key) => acc + TESTS[key].items.length, 0)
   const expectedCount = Object.keys(EXPECTED).length
-  !cmdOptions.quiet && console.log()
+  !cmdOpts._all.quiet && console.log()
   console.log('Compilers/tests/unique: %s/%s/%s%s',
     compilersCount,
     testsCount,
     expectedCount,
-    cmdOptions['dry-run'] ? '' : util.format(', passed/failed: %s/%s', PASSED, FAILED)
+    cmdOpts._all['dry-run'] ? '' : util.format(', passed/failed: %s/%s', PASSED, FAILED)
   )
-}
-
-function verboseExecParams(cmd, opt) {
-  console.log('=== cmd & options ======')
-  console.log(cmd)
-  console.log('%j', opt)
-  console.log('=== end cmd & options ==')
-}
-
-function verboseExecResult(obj) {
-  for (let k in obj) f(k, obj[k])
-  function f(caption, obj) {
-    console.log('=== %s ======', caption)
-    let tmp = obj
-    if (typeof obj == 'string'){
-      tmp = tmp
-        .replace(/(?<!\r)(\r\r\n)/g, '^r^r^n$1')
-        .replace(/(?<!\r)(\r\n)/g, '^r^n$1')
-        .replace(/(?<!\r)(\n)/g, '^n$1')
-        .replace(/\t/g, '^t')
-        .replace(/ /g, '\xb7') // middle dot
-    }
-    tmp && console.log(tmp)
-    console.log('=== %s end ===', caption)
-  }
 }
 
 function showShortTestList() {

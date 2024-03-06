@@ -2,7 +2,7 @@ const stringify = require('json-stable-stringify')
 const fs = require('fs-extra')
 const path = require('path')
 
-module.exports = { pretty, removeEmptyDirs}
+module.exports = { pretty, removeEmptyDirs, verboseExecParams, verboseExecResult }
 
 function pretty(obj, caption) {
   let replacer = (key, val) => {
@@ -52,3 +52,30 @@ function strHex(str, last) {
     })
   }
 }
+
+function verboseExecParams(cmd, opt) {
+  console.log('=== cmd & options ======')
+  console.log(cmd)
+  console.log('%j', opt)
+  console.log('=== end cmd & options ==')
+}
+
+function verboseExecResult(obj, skipEmpty) {
+  for (let k in obj) f(k, obj[k])
+  function f(caption, obj) {
+    if (!obj || obj.toString() == '') return
+    let tmp = obj
+    if (typeof obj == 'string'){
+      tmp = tmp
+        .replace(/(?<!\r)(\r\r\n)/g, '^r^r^n$1')
+        .replace(/(?<!\r)(\r\n)/g, '^r^n$1')
+        .replace(/(?<!\r)(\n)/g, '^n$1')
+        .replace(/\t/g, '^t')
+        .replace(/ /g, '\xb7') // middle dot
+    }
+    console.log('=== %s ======', caption)
+    tmp && console.log(tmp)
+    console.log('=== %s end ===', caption)
+  }
+}
+

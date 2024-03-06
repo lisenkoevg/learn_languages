@@ -1,10 +1,11 @@
 module.exports = params => {
-  const { cmdOptions, SHELL } = params
+  const { cmdOpts, SHELL } = params
   const fs = require('fs-extra')
   const { exec } = require('child_process')
   const async = require('async')
   const stringify = require('json-stable-stringify')
 
+  const { verboseExecParams, verboseExecResult } = require('./lib.js')
 
   const COMPILERS = {
     bash: {
@@ -164,9 +165,11 @@ module.exports = params => {
     })
     const iteratee = (compiler, title, cb) => {
       const cmd = `${compiler.cmd} ${compiler.versionArgs}`
-      if (cmdOptions.verbose && cmdOptions.versions)
-        console.log(cmd)
       exec(cmd, { encoding: 'utf8', shell: SHELL }, (err, stdout, stderr) => {
+        if (cmdOpts._all.verbose && cmdOpts._all.versions) {
+          console.log("\n" + cmd)
+          verboseExecResult({ err, stdout, stderr }, true)
+        }
         if (err || stderr) {
           if (!handleNotExisted) {
             const advice = '\nTry to exclude it with filter.'
@@ -178,7 +181,7 @@ module.exports = params => {
         cb(null, ma[0])
       })
     }
-    async.mapValuesLimit(filtered, 3, iteratee, (err, res) => {
+    async.mapValuesLimit(filtered, cmdOpts._all.pc, iteratee, (err, res) => {
       if (err) {
         return cb(err)
       }
@@ -202,17 +205,17 @@ module.exports = params => {
   }
 
   function isCompilerIncluded(title) {
-    if (!cmdOptions.ic.test(title))
+    if (!cmdOpts._all.ic.test(title))
       return false
-    if (cmdOptions.ec && cmdOptions.ec.test(title))
+    if (cmdOpts._all.ec && cmdOpts._all.ec.test(title))
       return false
     return true
   }
 
   function isTestIncluded(groupTitle) {
-    if (!cmdOptions.it.test(groupTitle))
+    if (!cmdOpts._all.it.test(groupTitle))
       return false
-    if (cmdOptions.et && cmdOptions.et.test(groupTitle))
+    if (cmdOpts._all.et && cmdOpts._all.et.test(groupTitle))
       return false
     return true
   }
