@@ -8,9 +8,11 @@ const cmdOpts = tryCmdOptions()
 function optionDefinitions() {
   return [
     { name: 'run', alias: 'r', type: Boolean, group: 'main', description: 'run tests' },
-    { name: 'dry-run', alias: 'n', type: Boolean, group: 'main', description: 'don\'n run tests, but show tests and expected files' },
+    { name: 'dry-run', alias: 'n', type: Boolean, group: 'main',
+      description: 'don\'n run tests, but show tests and expected files, with --rename-group show what would be done' },
     { name: 'config', alias: 'c', type: Boolean, group: 'main', description: 'show compilers configuration' },
     { name: 'versions', alias: 'V', type: Boolean, group: 'main', description: 'try to get versions for configured compilers' },
+    { name: 'rename-group', type: String, group: 'main', description: 'rename or move group of tests' },
     { name: 'ic', type: String, defaultValue: '.', group: 'filters', description: 'include regexp filter by compiler name' },
     { name: 'ec', type: String, defaultValue: '', group: 'filters', description: 'exclude regexp filter by compiler name' },
     { name: 'it', type: String, defaultValue: '.', group: 'filters', description: 'include regexp filter by test group and name' },
@@ -25,11 +27,14 @@ function optionDefinitions() {
 }
 
 function validateCmdOptions() {
+  const m = Object.keys(cmdOpts.main)
   if (cmdOpts._all.sequental)
     cmdOpts._all.pc = cmdOpts._all.pt = 1
   if (cmdOpts._all.verbose && cmdOpts._all.quiet)
     return false
-  if (Object.keys(cmdOpts.main).length != 1)
+  if (m.length == 2 && cmdOpts.main['dry-run'] && cmdOpts.main['rename-group'])
+    return true
+  if (m.length != 1)
     return false
   return true
 }
@@ -68,6 +73,7 @@ function usage() {
         '--dry-run [ --verbose ] <filters>',
         '--config [ --verbose ] <filter by compiler>',
         '--versions [ --verbose ] <filter by compiler>',
+        '--rename-group old_name:new_name [--dry-run]',
       ],
     },
     {

@@ -36,10 +36,10 @@ const {
   isCompilerIncluded,
   isTestIncluded
 } = require('./compilers')({ cmdOpts, SHELL })
+
 const TESTS = {}
 const EXPECTED = {}
-
-const LINES_TO_ANALYSE = 5
+const GROUPS = new Set()
 
 let PASSED = 0
 let FAILED = 0
@@ -72,7 +72,12 @@ async.series([
     console.timeEnd('elapsed')
     return
   }
-  if (cmdOpts._all['dry-run']) {
+  if (cmdOpts._all['rename-group']){
+    renameGroup(err => {
+      err && console.error(err.toString())
+      console.timeEnd('elapsed')
+    })
+  } else if (cmdOpts._all['dry-run']) {
     if (cmdOpts._all.verbose) {
       pretty(TESTS, 'TESTS')
       pretty(EXPECTED, 'EXPECTED')
@@ -81,7 +86,7 @@ async.series([
     }
     report()
     console.timeEnd('elapsed')
-  }
+  } else
   if (cmdOpts._all.run) {
     runTests((err, res) => {
       if (err)
@@ -187,6 +192,7 @@ function processDirEntryLevel(de) {
   }
   const tmpTitle = test.alternativeForTitle || test.title
   test.group = splittedPath.slice(2).join(path.sep)
+  GROUPS.add(splittedPath.slice(1).join(path.sep))
   if (!isTestIncluded(test.group + ' ' + tmpTitle))
     return
   test.parentDir = splittedPath.at(1)
@@ -256,7 +262,7 @@ function readExpected(cb) {
             return cb(err)
           } else {
             if (type == 'out') {
-              console.error('No expected output for test.')
+              console.error('No expected output for test: %s', file)
               return cb(err.message)
             }
           }
@@ -455,5 +461,74 @@ function showShortTestList() {
     TESTS[compilerTitle].items.forEach(test => {
       console.log('  %s', path.join(test.group, test.name))
     })
+  })
+}
+
+function renameGroup(cb) {
+  let [ oldname, newname ] = cmdOpts._all['rename-group'].split(':')
+  const re = /^[-_0-9a-zA-Z\\\/]+$/
+  if (!re.test(oldname))
+    return setImmediate(() => cb(new Error('invalid old group name: ' + oldname)))
+  if (!re.test(newname))
+    return setImmediate(() => cb(new Error('invalid new group name: ' + newname)))
+  oldname = oldname.replace(/\//g, path.sep)
+  newname = newname.replace(/\//g, path.sep)
+  const groupsExpected = Array.from(Object.keys(EXPECTED).reduce((acc, cur) => {
+    acc.add(path.dirname(cur))
+    return acc
+  }, new Set()))
+  const groupsTests = Array.from(GROUPS)
+  const moveList = []
+  groupsTests.forEach(x => {
+    const sp = x.split(path.sep)
+    const currentGroup = path.join(...sp.slice(1))
+    const compilerTitle = sp[0]
+    if (oldname == currentGroup)
+      moveList.push({
+        oldname: path.join(TESTS_DIR, compilerTitle, oldname),
+        newname: path.join(TESTS_DIR, compilerTitle, newname)
+      })
+  })
+  groupsExpected.forEach(x => {
+    if (x == oldname)
+      moveList.push({
+        oldname: path.join(EXPECTED_DIR, oldname),
+        newname: path.join(EXPECTED_DIR, newname),
+      })
+  })
+  if (!moveList.length) {
+    console.log('No such group. Nothing to do.')
+    return cb()
+  }
+  async.eachSeries(moveList, (x, cb) => {
+    fs.stat(x.newname, err => {
+      if (!err)
+        return cb(new Error('directory ' + x.newname + ' already exists'))
+      return cb()
+    })
+  }, err => {
+    if (err) return cb(err)
+    if (cmdOpts._all['dry-run']) {
+      console.log('Would move directories:', )
+      moveList.forEach(x => {
+        console.log('%s -> %s', x.oldname, x.newname)
+      })
+      return cb()
+    } else {
+      async.eachSeries(moveList, (x, cb) => {
+        fs.copy(x.oldname, x.newname, { preserveTimestamps: true })
+        .then(() => {
+          if (cmdOpts._all.verbose)
+            console.log('copied %s -> %s', x.oldname, x.newname)
+          return fs.remove(x.oldname)
+        })
+        .then(() => {
+          if (cmdOpts._all.verbose)
+            console.log('removed %s', x.oldname)
+          cb()
+        })
+        .catch(err => cb(err))
+      }, cb)
+    }
   })
 }
