@@ -84,7 +84,7 @@ module.exports = params => {
       cmdArgs: '',
       title: 'nodejs',
       lineComment: '//',
-      ext: '.js',
+      ext: [ '.js', '.mjs', '.cjs' ],
       versionPattern: /(?<=v)[\d.]+/,
     },
     php: {

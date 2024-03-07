@@ -205,8 +205,8 @@ function processDirEntryLevel(de) {
   test.outputPath = path.join(OUT_DIR_NAME, test.compilerTitle, test.group)
   test.outputFullname = path.join(test.outputPath, test.outputName)
   const compiler = COMPILERS[test.compilerTitle]
-  const multiFileTest = de.isDirectory() && ext == compiler.ext
-  if (ext != compiler.ext)
+  const multiFileTest = de.isDirectory() && (ext == compiler.ext || compiler.ext.includes?.(ext))
+  if (!(ext == compiler.ext || compiler.ext.includes?.(ext)))
     return
   let tmpName
   if (multiFileTest) {
