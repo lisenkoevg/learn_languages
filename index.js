@@ -33,8 +33,8 @@ if (cmdOpts._all.help || !validateCmdOptions()) {
 const {
   COMPILERS,
   getCompilersVersion,
-  isCompilerIncluded,
-  isTestIncluded
+  filterByCompilerTitle,
+  filterByTestTitle
 } = require('./compilers')({ cmdOpts, SHELL })
 
 const TESTS = {}
@@ -140,7 +140,7 @@ function processDirEntry(de, cb) {
       readTests.skipDir.push(path.join(de.path, de.name))
       return cb()
     }
-    if (!isCompilerIncluded(de.name))
+    if (!filterByCompilerTitle(de.name))
       return cb()
     readTestsResult[de.name] = { items: [] }
     return cb()
@@ -193,13 +193,13 @@ function processDirEntryLevel(de) {
   const tmpTitle = test.alternativeForTitle || test.title
   test.group = splittedPath.slice(2).join(path.sep)
   GROUPS.add(splittedPath.slice(1).join(path.sep))
-  if (!isTestIncluded(test.group + ' ' + tmpTitle))
+  if (!filterByTestTitle(test.group + ' ' + tmpTitle))
     return
   test.parentDir = splittedPath.at(1)
   test.path = path.join(PROJECT_DIR, de.path)
   test.fullname = path.join(test.path, name)
   test.compilerTitle = test.parentDir
-  if (!isCompilerIncluded(test.compilerTitle))
+  if (!filterByCompilerTitle(test.compilerTitle))
     return
   test.outputName = test.title + OUT_EXT
   test.outputPath = path.join(OUT_DIR_NAME, test.compilerTitle, test.group)
@@ -434,7 +434,7 @@ function runSingleTest(item, cb) {
 function showCompilersConfig() {
   pretty(Object.keys(COMPILERS).reduce(
     (acc, cur) => {
-      if (isCompilerIncluded(cur)) acc[cur] = COMPILERS[cur]
+      if (filterByCompilerTitle(cur)) acc[cur] = COMPILERS[cur]
       return acc
     },
     {}

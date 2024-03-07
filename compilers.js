@@ -158,7 +158,7 @@ module.exports = params => {
     let filtered = {}
     let isFiltered = false
     Object.keys(COMPILERS).forEach(title => {
-      if (isCompilerIncluded(title))
+      if (filterByCompilerTitle(title))
         filtered[title] = COMPILERS[title]
       else
         isFiltered = true
@@ -204,7 +204,7 @@ module.exports = params => {
     })
   }
 
-  function isCompilerIncluded(title) {
+  function filterByCompilerTitle(title) {
     if (!cmdOpts._all.ic.test(title))
       return false
     if (cmdOpts._all.ec && cmdOpts._all.ec.test(title))
@@ -212,7 +212,7 @@ module.exports = params => {
     return true
   }
 
-  function isTestIncluded(groupTitle) {
+  function filterByTestTitle(groupTitle) {
     if (!cmdOpts._all.it.test(groupTitle))
       return false
     if (cmdOpts._all.et && cmdOpts._all.et.test(groupTitle))
@@ -220,5 +220,5 @@ module.exports = params => {
     return true
   }
 
-  return { COMPILERS, getCompilersVersion, isCompilerIncluded, isTestIncluded }
+  return { COMPILERS, getCompilersVersion, filterByCompilerTitle, filterByTestTitle }
 }
