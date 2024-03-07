@@ -9,16 +9,17 @@ function optionDefinitions() {
   return [
     { name: 'run', alias: 'r', type: Boolean, group: 'main', description: 'run tests' },
     { name: 'dry-run', alias: 'n', type: Boolean, group: 'main',
-      description: 'don\'n run tests, but show tests and expected files, with --rename-group show what would be done' },
+      description: 'don\'n run tests, but show tests and expected files, with group options show what would be done' },
     { name: 'config', alias: 'c', type: Boolean, group: 'main', description: 'show compilers configuration' },
     { name: 'versions', alias: 'V', type: Boolean, group: 'main', description: 'try to get versions for configured compilers' },
-    { name: 'rename-group', type: String, group: 'main', description: 'rename or move group of tests' },
+    { name: 'rename-group', type: String, group: 'testGroups', description: 'rename or move group of tests' },
+    { name: 'remove-group', type: String, group: 'testGroups', description: 'remove group of tests' },
     { name: 'ic', type: String, defaultValue: '.', group: 'filters', description: 'include regexp filter by compiler name' },
     { name: 'ec', type: String, defaultValue: '', group: 'filters', description: 'exclude regexp filter by compiler name' },
     { name: 'it', type: String, defaultValue: '.', group: 'filters', description: 'include regexp filter by test group and name' },
     { name: 'et', type: String, defaultValue: '', group: 'filters', description: 'exclude regexp filter by test group and name' },
     { name: 'help', alias: 'h', type: Boolean, description: 'show this help' },
-    { name: 'verbose', alias: 'v', type: Boolean, description: 'verbose compilers output of err, stdout, stderr' },
+    { name: 'verbose', alias: 'v', type: Boolean, description: 'verbose compilers output of err, stdout, stderr and verbose actions with groups' },
     { name: 'quiet', alias: 'q', type: Boolean, description: 'don\'t show passed tests report' },
     { name: 'sequental', alias: 's', type: Boolean, group: 'parallelism', description: 'set to 1 both parallel tests and parallel compilers' },
     { name: 'pc', type: Number, defaultValue: 3, group: 'parallelism', description: 'number of parallel compilers' },
@@ -28,13 +29,14 @@ function optionDefinitions() {
 
 function validateCmdOptions() {
   const m = Object.keys(cmdOpts.main)
+  const g = Object.keys(cmdOpts.testGroups)
   if (cmdOpts._all.sequental)
     cmdOpts._all.pc = cmdOpts._all.pt = 1
   if (cmdOpts._all.verbose && cmdOpts._all.quiet)
     return false
-  if (m.length == 2 && cmdOpts.main['dry-run'] && cmdOpts.main['rename-group'])
-    return true
-  if (m.length != 1)
+  if (m.length > 1 && !cmdOpts.main['dry-run'])
+    return false
+  if (g.length > 1)
     return false
   return true
 }
@@ -74,6 +76,7 @@ function usage() {
         '--config [ --verbose ] <filter by compiler>',
         '--versions [ --verbose ] <filter by compiler>',
         '--rename-group old_name:new_name [--dry-run]',
+        '--remove-group group_name [--dry-run]',
       ],
     },
     {
@@ -87,14 +90,19 @@ function usage() {
       group: 'filters',
     },
     {
-      header: 'Misc',
+      header: 'Work with test groups',
       optionList: optionDefinitions(),
-      group: '_none',
+      group: 'testGroups',
     },
     {
       header: 'Options related to paralellism',
       optionList: optionDefinitions(),
       group: 'parallelism',
+    },
+    {
+      header: 'Misc',
+      optionList: optionDefinitions(),
+      group: '_none',
     },
     {
       content: 'Project home: {underline https://gitflic.ru/project/evgeen/learn_languages}'
