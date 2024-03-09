@@ -114,6 +114,9 @@ function tagsArrToObj(arr) {
       case '#outputStderr':
         result.outputStderr = true
         break
+      case '#stripThisFilename':
+        result.stripThisFilename = true
+        break
       case '#env':
         isEnv = true
         isArgs = false

@@ -245,8 +245,7 @@ function processDirEntryLevel(de) {
     compiler.lineComment
   )
   } catch (e) {
-	console.error(e.message)
-	console.error(test.fullname)
+	console.error('%s, %s', e.message, test.fullname)
 	process.exit()
   }
   return { test, compiler }
@@ -392,6 +391,10 @@ function runSingleTest(item, cb) {
       }
       if (compiler.postProcessStderr && stderr) {
         stderr = compiler.postProcessStderr(stderr, item.fullname)
+      }
+      if (item.opts.stripThisFilename) {
+        let re = new RegExp('(^|\\s+).*' + item.fullname.replace(/\\|\//g, '.') + '.*\\n')
+        stderr = stderr.replace(re, '')
       }
       let result
       if (!outputRc && !outputStderr) {
