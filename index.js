@@ -239,6 +239,16 @@ function processDirEntryLevel(de) {
   if (compiler.preCmdResult) {
     test.preCmdResult = compiler.preCmdResult
   }
+  try {
+  test.opts = getOptsFromSrcCode(
+    fs.readFileSync(test.fullname, { encoding: 'utf8' }),
+    compiler.lineComment
+  )
+  } catch (e) {
+	console.error(e.message)
+	console.error(test.fullname)
+	process.exit()
+  }
   return { test, compiler }
 }
 
@@ -325,13 +335,15 @@ function runSingleTest(item, cb) {
   const opt = { cwd: item.path, encoding: 'utf8', shell: SHELL }
   const tmpTitle = item.alternativeForTitle || item.title
   const expected = EXPECTED[path.join(item.group, tmpTitle)]
+  const outputRc = item.opts?.outputRc || expected.outputRc
+  const outputStderr = item.opts?.outputStderr || expected.outputStderr
   if (item.preCmd) {
     child_process.exec(item.preCmd, opt, (err, stdout, stderr) => {
-      if (err && !expected.outputRc) {
+      if (err && !outputRc) {
         if (stderr) console.log(stderr)
         return cb(err)
       }
-      if (stderr.length && !expected.outputStderr) {
+      if (stderr.length && !outputStderr) {
         console.error(stderr)
         return cb(true)
       }
@@ -341,17 +353,10 @@ function runSingleTest(item, cb) {
     mainRunner()
   }
   function mainRunner(preCmdStdout) {
-    let opt_
-    if (expected.env) {
-      opt_ = Object.assign({ env: expected.env}, opt)
-    }
-    if (expected.args) {
-      item.runCmd += ' ' + expected.args
-      const compiler = COMPILERS[item.compilerTitle]
-      if (compiler.alterCmdWithArgs) {
-        item.runCmd = compiler.alterCmdWithArgs(item)
-      }
-    }
+    const env = item.opts?.env || expected.env
+    let opt_ = env ? Object.assign({ env }, opt) : null
+    const args = item.opts?.args || expected.args || ''
+    item.runCmd += args ? ' ' + args : ''
     if (preCmdStdout || /:PRECMDRESULT\b/.test(item.runCmd))
       item.runCmd = item.runCmd.replace(
         /:PRECMDRESULT\b/,
@@ -364,12 +369,12 @@ function runSingleTest(item, cb) {
       if (cmdOpts._all.verbose) {
         verboseExecResult({ err, stdout, stderr })
       }
-      if (err && !expected.outputRc) {
+      if (err && !outputRc) {
         if (stderr) console.error(stderr)
         if (stdout) console.error(compiler.postProcessStdout && compiler.postProcessStdout(stdout).trim() || stdout)
         return cb(err)
       }
-      if (stderr.length && !expected.outputStderr) {
+      if (stderr.length && !outputStderr) {
         if (item.compilerTitle != 'vim') {
           console.error(stderr)
           return cb(true)
@@ -389,11 +394,11 @@ function runSingleTest(item, cb) {
         stderr = compiler.postProcessStderr(stderr, item.fullname)
       }
       let result
-      if (!expected.outputRc && !expected.outputStderr) {
+      if (!outputRc && !outputStderr) {
         result = stdout
       } else {
         result = ''
-        if (expected.outputStderr) {
+        if (outputStderr) {
           let tmpOut = stdout.replace(/^(.+)$/gm, 'stdout: $1')
           if (stderr) {
             let tmpErr = stderr
@@ -401,7 +406,7 @@ function runSingleTest(item, cb) {
           }
           result = tmpOut
         }
-        if (expected.outputRc) {
+        if (outputRc) {
           result = result + 'rc: ' + child.exitCode
         }
       }
@@ -463,4 +468,13 @@ function showShortTestList() {
       console.log('  %s', path.join(test.group, test.name))
     })
   })
+}
+
+function getOptsFromSrcCode(srcCode, lineComment) {
+  const re = new RegExp('^\\s*' + lineComment + '(.*)$')
+  const shabang = /^#!/
+  const lines = srcCode.split(/\n+/)
+    .filter(x => re.test(x) && !shabang.test(x))
+    .map(x => x.replace(re, '$1').trim()).join('\n')
+  return parseTags(lines)
 }

@@ -38,6 +38,8 @@ function validateCmdOptions() {
     return false
   if (g.length > 1)
     return false
+  if (!g.length && !m.length)
+    return false
   return true
 }
 
