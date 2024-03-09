@@ -1,0 +1,4 @@
+stderr:   File "/cygdrive/d/YandexDisk/Projects/learn_languages/tests/python/syntax/indentError.py", line 3
+stderr:     print('space in the beginning of line')
+stderr: IndentationError: unexpected indent
+rc: 1
