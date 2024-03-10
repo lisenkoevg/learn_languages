@@ -114,7 +114,7 @@ module.exports = params => {
     },
     python: {
       cmd: 'python3.9',
-      cmdArgs: '',
+      cmdArgs: '-B',
       title: 'python',
       lineComment: '#',
       ext: '.py',
