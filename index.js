@@ -295,10 +295,10 @@ function analyseInputFile(item, cb) {
   let headerLines = []
   let inputContentLines = []
   item.in.split(/\n/).forEach(x => {
-    if (!/^\s*#/.test(x))
-      inputContentLines.push(x)
-    else
+    if (/^\s*#[^#]/.test(x))
       headerLines.push(x)
+    else if (!/^\s*##/.test(x))
+      inputContentLines.push(x)
   })
   let result = {
     out: item.out
@@ -308,7 +308,7 @@ function analyseInputFile(item, cb) {
   } catch (err) {
     return setImmediate(cb, err)
   }
-  result.in = inputContentLines.join('\n')
+  result.in = inputContentLines.join('\n').trim()
   if (Array.isArray(result.args))
     result.args = result.args.map(x => `"${x}"`).join(' ')
   setImmediate(cb, null, result)
@@ -440,6 +440,7 @@ function runSingleTest(item, cb) {
         ], cb)
       }
     })
+    child.stdin.end(expected.in)
   }
 }
 
