@@ -1,11 +1,9 @@
 BEGIN {
   split("", arr)
-  arr[0] = 10
-  arr[1] = 10
-  arr[2] = 20
-  arr[3] = 30
-  arr[5] = 30
-  print alen(n) # print 5
+  arr[0] = arr1
+  arr[1] = arr2
+  arr[2] = arr3
+  print alen(n) # print 3
 }
 
 function alen(a,   k, n) {
