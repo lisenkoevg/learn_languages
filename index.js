@@ -208,8 +208,9 @@ function processDirEntryLevel(de) {
   test.outputPath = path.join(OUT_DIR_NAME, test.compilerTitle, test.group)
   test.outputFullname = path.join(test.outputPath, test.outputName)
   const compiler = COMPILERS[test.compilerTitle]
-  const multiFileTest = de.isDirectory() && (ext == compiler.ext || compiler.ext.includes?.(ext))
-  if (!(ext == compiler.ext || compiler.ext.includes?.(ext)))
+  const allowedExt = ext == compiler.ext || Array.isArray(compiler.ext) && compiler.ext.includes(ext)
+  const multiFileTest = de.isDirectory() && allowedExt
+  if (!allowedExt)
     return
   let tmpName
   if (multiFileTest) {
@@ -477,9 +478,17 @@ function showShortTestList() {
 
 function getOptsFromSrcCode(srcCode, lineComment) {
   const re = new RegExp('^\\s*' + lineComment + '(.*)$')
-  const shabang = /^#!/
+  const exclude = /^#!|#include|#define/
+  let skip = false
   const lines = srcCode.split(/\n+/)
-    .filter(x => re.test(x) && !shabang.test(x))
+    .filter(x => {
+      if (re.test(x) && !exclude.test(x) && !skip)
+        return true
+      else {
+        skip = true
+        return false
+      }
+    })
     .map(x => x.replace(re, '$1').trim()).join('\n')
   return parseTags(lines)
 }

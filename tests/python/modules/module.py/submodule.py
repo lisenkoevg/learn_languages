@@ -1,2 +1,1 @@
 print("submodule")
-a = ''
