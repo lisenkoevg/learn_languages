@@ -14,7 +14,8 @@ mergeTests:
 .PHONY: clean
 clean:
 	$(info Clean output...)
-	rm -rf ./output
+	rm -rf ./output; \
+	find . -depth -type d -name __pycache__ -execdir rm -rf '{}' \;
 
 .PHONY: showExcluded
 showExcluded:
