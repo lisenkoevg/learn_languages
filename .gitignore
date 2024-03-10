@@ -4,3 +4,4 @@ draft
 output
 tests_merged
 *.swp
+__pycache__

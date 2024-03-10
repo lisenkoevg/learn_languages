@@ -1,1 +1,2 @@
 print("submodule")
+a = ''
