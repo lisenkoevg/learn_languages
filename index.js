@@ -191,11 +191,13 @@ function processDirEntryLevel(de) {
     test.alternativeForTitle = alternativeForTitle
     test.alternativeForName = alternativeForTitle + ext
   }
-  const tmpTitle = test.alternativeForTitle || test.title
   test.group = splittedPath.slice(2).join(path.sep)
   GROUPS.add(splittedPath.slice(1).join(path.sep))
-  if (!filterByTestTitle(test.group + ' ' + tmpTitle))
+  if (!filterByTestTitle(test.group + ' ' + test.title)) {
+    if (test.alternativeForTitle)
+      readTests.skipDir.push(path.join(de.path, name))
     return
+  }
   test.parentDir = splittedPath.at(1)
   test.path = path.join(PROJECT_DIR, de.path)
   test.fullname = path.join(test.path, name)
