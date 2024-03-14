@@ -6,6 +6,7 @@ const child_process = require('child_process')
 const fs = require('fs-extra')
 const async = require('async')
 const stringify = require('json-stable-stringify')
+const { table } = require('table')
 
 const {
   cmdOpts,
@@ -102,6 +103,24 @@ async.series([
       else
         process.exit(1)
     })
+  } else
+  if (cmdOpts._all.show) {
+	const tableData = []
+	const tableConfig = {
+	  columns: [
+		{ width: 80 },
+		{ width: 60 },
+	  ],
+	}
+	for (let c in TESTS) {
+	  TESTS[c].items.forEach(item => {
+		const tmpTitle = item.alternativeForTitle || item.title
+		const expected = EXPECTED[path.join(item.group, tmpTitle)]
+		tableData.push([ item.fullname, 'input === expected'])
+		tableData.push([ item.content, expected.inRaw || '<none>' + '\n===\n' + expected.out])
+	  })
+	}
+	console.log(table(tableData, tableConfig))
   }
 })
 
@@ -243,10 +262,11 @@ function processDirEntryLevel(de) {
     test.preCmdResult = compiler.preCmdResult
   }
   try {
-  test.opts = getOptsFromSrcCode(
-    fs.readFileSync(test.fullname, { encoding: 'utf8' }),
-    compiler.lineComment
-  )
+	const { opts, content } = getOptsFromSrcCode(
+	  fs.readFileSync(test.fullname, { encoding: 'utf8' }),
+	  compiler.lineComment
+	)
+	Object.assign(test, { opts, content })
   } catch (e) {
 	console.error('%s, %s', e.message, test.fullname)
 	process.exit()
@@ -309,6 +329,7 @@ function analyseInputFile(item, cb) {
     return setImmediate(cb, err)
   }
   result.in = inputContentLines.join('\n').trim()
+  result.inRaw = item.in
   if (Array.isArray(result.args))
     result.args = result.args.map(x => `"${x}"`).join(' ')
   setImmediate(cb, null, result)
@@ -491,5 +512,5 @@ function getOptsFromSrcCode(srcCode, lineComment) {
       }
     })
     .map(x => x.replace(re, '$1').trim()).join('\n')
-  return parseTags(lines)
+  return { opts: parseTags(lines), content: srcCode }
 }

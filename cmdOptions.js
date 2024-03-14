@@ -10,6 +10,7 @@ function optionDefinitions() {
     { name: 'run', alias: 'r', type: Boolean, group: 'main', description: 'run tests' },
     { name: 'dry-run', alias: 'n', type: Boolean, group: 'main',
       description: 'don\'n run tests, but show tests and expected files, with group options show what would be done' },
+    { name: 'show', type: Boolean, group: 'main', description: 'show test source code, it\'s intput data and expected result' },
     { name: 'config', alias: 'c', type: Boolean, group: 'main', description: 'show compilers configuration' },
     { name: 'versions', alias: 'V', type: Boolean, group: 'main', description: 'try to get versions for configured compilers' },
     { name: 'rename-group', type: String, group: 'testGroups', description: 'rename or move group of tests' },
@@ -75,6 +76,7 @@ function usage() {
       content: [
         '--run [ --quiet | --verbose ] <filters> <paralellism>',
         '--dry-run [ --verbose ] <filters>',
+        '--show <filter by compiler>',
         '--config [ --verbose ] <filter by compiler>',
         '--versions [ --verbose ] <filter by compiler>',
         '--rename-group old_name:new_name [--dry-run]',
