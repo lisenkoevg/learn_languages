@@ -117,7 +117,7 @@ async.series([
 		const tmpTitle = item.alternativeForTitle || item.title
 		const expected = EXPECTED[path.join(item.group, tmpTitle)]
 		tableData.push([ item.fullname, 'input === expected'])
-		tableData.push([ item.content, expected.inRaw || '<none>' + '\n===\n' + expected.out])
+		tableData.push([ item.content.replace(/\t/g, '    '), (expected.inRaw || '<none>') + '\n===\n' + expected.out])
 	  })
 	}
 	console.log(table(tableData, tableConfig))
