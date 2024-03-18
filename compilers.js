@@ -60,6 +60,8 @@ module.exports = params => {
       lineComment: '//',
       ext: '.c',
       versionPattern: /(?<=gcc \(GCC\) )[\d.]+/,
+      postProcessStdout: str => str.replace(/\r\n/g, '\n'),
+      postProcessStderr: str => str.replace(/\r\n/g, '\n'),
     },
     lua: {
       cmd: 'lua',
