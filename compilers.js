@@ -139,7 +139,7 @@ module.exports = params => {
       versionPattern: /(?<=ruby )[\d.]+/,
     },
     vim: {
-      cmd: 'vimw',
+      cmd: 'vim',
       cmdArgs: '--not-a-term -u',
       title: 'vim',
       lineComment: '#',
