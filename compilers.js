@@ -72,6 +72,14 @@ module.exports = params => {
       versionArgs: '-v',
       versionPattern: /(?<=Lua )[\d.]+/,
     },
+    m4: {
+      cmd: 'm4',
+      cmdArgs: '',
+      title: 'm4',
+      lineComment: '#',
+      ext: '.m4',
+     versionPattern: /(?<=m4 \(GNU M4\) )[\d.]+/,
+    },
     make: {
       cmd: 'make',
       cmdArgs: '--silent -f',
@@ -131,7 +139,7 @@ module.exports = params => {
       versionPattern: /(?<=ruby )[\d.]+/,
     },
     vim: {
-      cmd: 'vim',
+      cmd: 'vimw',
       cmdArgs: '--not-a-term -u',
       title: 'vim',
       lineComment: '#',

@@ -99,7 +99,7 @@ async.series([
       report()
       console.timeEnd('elapsed')
       if (!FAILED && PASSED)
-        child_process.exec('nircmd beep 4000 50')
+        child_process.exec('beep 4000 50')
       else
         process.exit(1)
     })
