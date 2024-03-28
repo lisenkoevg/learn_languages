@@ -1,2 +1,4 @@
-str = 'abc' * 3
-print(str)
+import os
+str = os.environ['str']
+count = os.environ['count']
+print(str * int(count))
