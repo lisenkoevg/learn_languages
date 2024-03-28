@@ -108,8 +108,8 @@ async.series([
 	const tableData = []
 	const tableConfig = {
 	  columns: [
-		{ width: 80 },
-		{ width: 60 },
+// 		{ width: 80 },
+// 		{ width: 60 },
 	  ],
 	}
 	for (let c in TESTS) {

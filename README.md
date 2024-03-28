@@ -55,7 +55,7 @@ Misc
 
 ```
 ### Compilers configurations
-("compiler" in this project is any program which convert some input to some output:)
+("compiler" in this project is any program which convert some input to some output :)
 ```
 COMPILERS:
 {
@@ -215,6 +215,110 @@ COMPILERS:
     "versionPattern": "/(?<=Microsoft Windows \\[Version )[\\d.]+/"
   }
 }
+
+```
+### Example of --show command
+```
+$ node . --show --it echo_noeol
+╔══════════════════════════════════════════╤════════════════════╗
+║ tests\C#\stdInOutErr\echo_noeol.cs       │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ using System;                            │ <none>             ║
+║                                          │ ===                ║
+║ internal class Program {                 │ 1                  ║
+║   static void Main() {                   │                    ║
+║     Console.Write("1");                  │                    ║
+║   }                                      │                    ║
+║ }                                        │                    ║
+║                                          │                    ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\bash\stdInOutErr\echo_noeol.sh     │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ echo -n 1                                │ <none>             ║
+║                                          │ ===                ║
+║                                          │ 1                  ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\g++\stdInOutErr\echo_noeol.cpp     │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ #include <iostream>                      │ <none>             ║
+║                                          │ ===                ║
+║ using namespace std;                     │ 1                  ║
+║                                          │                    ║
+║ int main() {                             │                    ║
+║   cout << "1";                           │                    ║
+║ }                                        │                    ║
+║                                          │                    ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\gawk\stdInOutErr\echo_noeol.awk    │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ BEGIN { printf 1 }                       │ <none>             ║
+║                                          │ ===                ║
+║                                          │ 1                  ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\gcc\stdInOutErr\echo_noeol.1.c     │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ #include <stdio.h>                       │ <none>             ║
+║                                          │ ===                ║
+║ int main() {                             │ 1                  ║
+║   fprintf(stdout, "%s", "1");            │                    ║
+║   return 0;                              │                    ║
+║ }                                        │                    ║
+║                                          │                    ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\gcc\stdInOutErr\echo_noeol.c       │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ #include <stdio.h>                       │ <none>             ║
+║                                          │ ===                ║
+║ int main() {                             │ 1                  ║
+║   printf("%s", "1");                     │                    ║
+║   return 0;                              │                    ║
+║ }                                        │                    ║
+║                                          │                    ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\m4\stdInOutErr\echo_noeol.m4       │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ 1                                        │ <none>             ║
+║                                          │ ===                ║
+║                                          │ 1                  ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\nodejs\stdInOutErr\echo_noeol.js   │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ process.stdout.write("1")                │ <none>             ║
+║                                          │ ===                ║
+║                                          │ 1                  ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\php\stdInOutErr\echo_noeol.php     │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ <?php                                    │ <none>             ║
+║   echo '1';                              │ ===                ║
+║                                          │ 1                  ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\python\stdInOutErr\echo_noeol.1.py │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ import sys                               │ <none>             ║
+║ sys.stdout.write('1')                    │ ===                ║
+║                                          │ 1                  ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\python\stdInOutErr\echo_noeol.py   │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ print('1', end='')                       │ <none>             ║
+║                                          │ ===                ║
+║                                          │ 1                  ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\ruby\stdInOutErr\echo_noeol.rb     │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ print 1                                  │ <none>             ║
+║                                          │ ===                ║
+║                                          │ 1                  ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ tests\vim\stdInOutErr\echo_noeol.vim     │ input === expected ║
+╟──────────────────────────────────────────┼────────────────────╢
+║ vim9script                               │ <none>             ║
+║                                          │ ===                ║
+║ echo "1"                                 │ 1                  ║
+║ exit                                     │                    ║
+║                                          │                    ║
+╚══════════════════════════════════════════╧════════════════════╝
 
 ```
 ```
