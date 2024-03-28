@@ -3,7 +3,7 @@ define("_help_cmd", "node . --help")dnl
 define("_compilers_config_cmd", "node . -c | sed '/^cmdOptions:/Q'")dnl
 define("_backtick", "```")dnl
 changequote()dnl
-## Get equals results for different languages input sources
+## Get equal results for different languages input sources
 _backtick
 $ _help_cmd
 esyscmd(_help_cmd)

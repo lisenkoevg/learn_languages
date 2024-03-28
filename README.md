@@ -1,4 +1,4 @@
-## Get equals results for different languages input sources
+## Get equal results for different languages input sources
 ```
 $ node . --help
 
