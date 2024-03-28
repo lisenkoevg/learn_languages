@@ -55,7 +55,7 @@ Misc
 
 ```
 ### Compilers configurations
-("compiler" in this project is any program which convert some input to some output :)
+("compiler" in this project is any program which transform some input to some output :)
 ```
 COMPILERS:
 {

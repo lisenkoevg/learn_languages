@@ -10,7 +10,7 @@ $ _help_cmd
 esyscmd(_help_cmd)
 _backtick
 ### Compilers configurations
-("compiler" in this project is any program which convert some input to some output :)
+("compiler" in this project is any program which transform some input to some output :)
 _backtick
 esyscmd(_compilers_config_cmd)
 _backtick
