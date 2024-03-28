@@ -27,8 +27,8 @@ Main options
 
 Filters options
 
-  --ic string   include regexp filter by compiler name       
-  --ec string   exclude regexp filter by compiler name       
+  --ic string   include regexp filter by compiler title      
+  --ec string   exclude regexp filter by compiler title      
   --it string   include regexp filter by test group and name 
   --et string   exclude regexp filter by test group and name 
 
