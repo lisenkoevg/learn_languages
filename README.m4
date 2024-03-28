@@ -1,20 +1,17 @@
-define(`_help_cmd', `node . --help')dnl
 changequote(`"', `"')dnl
+define("_help_cmd", "node . --help")dnl
+define("_compilers_config_cmd", "node . -c | sed '/^cmdOptions:/Q'")dnl
 define("_backtick", "```")dnl
 changequote()dnl
-# Get equals results for different languages input sources
-
+## Get equals results for different languages input sources
 _backtick
 $ _help_cmd
 esyscmd(_help_cmd)
 _backtick
+### Compilers configurations
+("compiler" in this project is any program which convert some input to some output:)
 _backtick
-COMPILERS
-  compilerTitle
-    ...
-    title: compilerTitle
-    ...
-  ...
+esyscmd(_compilers_config_cmd)
 _backtick
 _backtick
   tests/bash/echo.sh - simple (not multifile) test
