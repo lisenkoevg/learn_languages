@@ -98,13 +98,17 @@ async.series([
       removeEmptyDirs(OUT_DIR)
       report()
       console.timeEnd('elapsed')
+	  cmdOpts._all.show && _show()
       if (!FAILED && PASSED)
         child_process.exec('beep 4000 50')
       else
         process.exit(1)
     })
-  } else
-  if (cmdOpts._all.show) {
+  }
+
+  !cmdOpts._all.run && cmdOpts._all.show && _show()
+
+  function _show() {
 	const tableData = []
 	const tableConfig = {
 	  columns: [

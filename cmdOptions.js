@@ -35,7 +35,7 @@ function validateCmdOptions() {
     cmdOpts._all.pc = cmdOpts._all.pt = 1
   if (cmdOpts._all.verbose && cmdOpts._all.quiet)
     return false
-  if (m.length > 1 && !cmdOpts.main['dry-run'])
+  if (m.length > 1 && !cmdOpts.main['dry-run'] && !cmdOpts.main['show'])
     return false
   if (g.length > 1)
     return false
@@ -76,7 +76,7 @@ function usage() {
       content: [
         '--run [ --quiet | --verbose ] <filters> <paralellism>',
         '--dry-run [ --verbose ] <filters>',
-        '--show <filter by compiler>',
+        '--show <filters>',
         '--config [ --verbose ] <filter by compiler>',
         '--versions [ --verbose ] <filter by compiler>',
         '--rename-group old_name:new_name [--dry-run]',

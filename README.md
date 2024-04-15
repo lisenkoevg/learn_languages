@@ -10,7 +10,7 @@ Usage:
 
   --run [ --quiet | --verbose ] <filters> <paralellism> 
   --dry-run [ --verbose ] <filters>                     
-  --show <filter by compiler>                           
+  --show <filters>                                      
   --config [ --verbose ] <filter by compiler>           
   --versions [ --verbose ] <filter by compiler>         
   --rename-group old_name:new_name [--dry-run]          
