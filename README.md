@@ -21,7 +21,7 @@ Main options
   -r, --run         run tests                                                   
   -n, --dry-run     don'n run tests, but show tests and expected files, with    
                     group options show what would be done                       
-  --show            show test source code, it's intput data and expected result 
+  --show            show test source code, it's input data and expected result  
   -c, --config      show compilers configuration                                
   -V, --versions    try to get versions for configured compilers                
 
