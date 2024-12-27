@@ -1,0 +1,12 @@
+A ctor
+B ctor
+A ctor
+B ctor
+5 10
+4 8
+5 10
+5 8
+B dtor
+A dtor
+B dtor
+A dtor
