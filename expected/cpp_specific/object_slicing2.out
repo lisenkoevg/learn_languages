@@ -1,0 +1,9 @@
+A ctor
+B ctor
+5
+0
+A dtor
+1
+5 10
+B dtor
+A dtor
