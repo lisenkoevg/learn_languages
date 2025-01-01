@@ -121,7 +121,12 @@ async.series([
 		const tmpTitle = item.alternativeForTitle || item.title
 		const expected = EXPECTED[path.join(item.group, tmpTitle)]
 		tableData.push([ item.fullname, 'input === expected'])
-		tableData.push([ item.content.replace(/\t/g, '    '), (expected.inRaw || '<none>') + '\n===\n' + expected.out])
+		tableData.push([
+          item.content.replace(/\t/g, '    '),
+          (expected.inRaw || '<none>')
+			+ '\n===\n'
+			+ expected.out
+        ])
 	  })
 	}
 	console.log(table(tableData, tableConfig))
@@ -362,8 +367,8 @@ function runSingleTest(item, cb) {
   const opt = { cwd: item.path, encoding: 'utf8', shell: SHELL }
   const tmpTitle = item.alternativeForTitle || item.title
   const expected = EXPECTED[path.join(item.group, tmpTitle)]
-  const outputRc = item.opts?.outputRc || expected.outputRc
-  const outputStderr = item.opts?.outputStderr || expected.outputStderr
+  const outputRc = expected.outputRc
+  const outputStderr = expected.outputStderr
   if (item.preCmd) {
     child_process.exec(item.preCmd, opt, (err, stdout, stderr) => {
       if (err && !outputRc) {
@@ -380,9 +385,9 @@ function runSingleTest(item, cb) {
     mainRunner()
   }
   function mainRunner(preCmdStdout) {
-    const env = item.opts?.env || expected.env
+    const env = expected.env
     let opt_ = env ? Object.assign({ env }, opt) : null
-    const args = item.opts?.args || expected.args || ''
+    const args = expected.args || ''
     item.runCmd += args ? ' ' + args : ''
     if (preCmdStdout || /:PRECMDRESULT\b/.test(item.runCmd))
       item.runCmd = item.runCmd.replace(
@@ -420,7 +425,7 @@ function runSingleTest(item, cb) {
       if (compiler.postProcessStderr && stderr) {
         stderr = compiler.postProcessStderr(stderr, item.fullname)
       }
-      if (item.opts.stripThisFilename) {
+      if (expected.stripThisFilename) {
         let re = new RegExp('(^|\\s+).*' + item.fullname.replace(/\\|\//g, '.') + '.*\\n')
         stderr = stderr.replace(re, '')
       }
@@ -516,5 +521,5 @@ function getOptsFromSrcCode(srcCode, lineComment) {
       }
     })
     .map(x => x.replace(re, '$1').trim()).join('\n')
-  return { opts: parseTags(lines), content: srcCode }
+  return { opts: {} /*parseTags(lines)*/, content: srcCode }
 }

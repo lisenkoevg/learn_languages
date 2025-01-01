@@ -4,9 +4,9 @@ const util = require('util')
 module.exports = { parseTags }
 
 const tests = [
-  { in: '#outputRc #outputStderr #args a "b c" #env a=b e="a b"',
-    out: ['#outputRc', '#outputStderr', '#args', 'a', 'b c', '#env', 'a=b', 'e=a b'],
-    outObj: { outputRc: true, outputStderr: true, args: ['a', 'b c'], env: { a: 'b', e: 'a b' } }
+  { in: '#outputRc #outputStderr #args a "b c" #env a=b e="a b" #stripThisFilename',
+    out: ['#outputRc', '#outputStderr', '#args', 'a', 'b c', '#env', 'a=b', 'e=a b', '#stripThisFilename'],
+    outObj: { outputRc: true, outputStderr: true, args: ['a', 'b c'], env: { a: 'b', e: 'a b' }, stripThisFilename: true }
   },
   { in: 'aaa #args', out: ['aaa', '#args'], outObj: { _error: 2 } },
   { in: '#env =1', out: ['#env', '=1'], outObj: { _error: 3 } },
