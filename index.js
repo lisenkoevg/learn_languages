@@ -251,6 +251,7 @@ function processDirEntryLevel(de) {
   }
   test.runCmd = [
     compiler.cmd,
+    process.env.CFLAGS,
     compiler.cmdArgs.replace(/:FILE\b/g, tmpName),
     !compiler.cmdArgs.match(/:FILE\b/) ? `"${tmpName}"` : ''
   ]
