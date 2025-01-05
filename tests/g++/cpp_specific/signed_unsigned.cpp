@@ -1,0 +1,19 @@
+#include <iostream>
+
+int main() {
+  unsigned int u = 10, u2 = 42;
+  std::cout << u2 - u << std::endl; // 32
+
+  // 10 - 42 = -32
+  // assume, int = 4 byte (2^32 = 4 294 967 296)
+  // 32 = 0000 0000 0000 0000 0000 0000 0010 0000
+  //-32 = 1111 1111 1111 1111 1111 1111 1110 0000 (^32 + 1) = 4 294 967 264
+  std::cout << u - u2 << std::endl; // 4 294 967 264
+
+  int i = 10, i2 = 42;
+  std::cout << i2 - i << std::endl; // 32
+  std::cout << i - i2 << std::endl; // -32
+  std::cout << i - u << std::endl; // 0
+  std::cout << u - i << std::endl; // 0
+}
+

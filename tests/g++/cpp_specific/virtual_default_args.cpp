@@ -12,6 +12,7 @@ struct Derived: public Base {
 int main() {
    Base *pb = new Derived();
    std::cout << pb->foo() << std::endl;
+   std::cout << static_cast<Derived*>(pb)->foo() << std::endl;
    delete pb;
 }
 
