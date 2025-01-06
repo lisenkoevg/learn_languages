@@ -111,10 +111,11 @@ async.series([
   function _show() {
 	const tableData = []
 	const tableConfig = {
-	  columns: [
-// 		{ width: 80 },
-// 		{ width: 60 },
-	  ],
+      columnDefault: { wrapWord: true },
+// 	  columns: [
+// 		{  width: 90, wrapWord: true },
+// 		{  width: 90, wrapWord: true },
+// 	  ],
 	}
 	for (let c in TESTS) {
 	  TESTS[c].items.forEach(item => {
