@@ -111,7 +111,7 @@ async.series([
   function _show() {
 	const tableData = []
 	const tableConfig = {
-      columnDefault: { wrapWord: true },
+//       columnDefault: { wrapWord: true },
 // 	  columns: [
 // 		{  width: 90, wrapWord: true },
 // 		{  width: 90, wrapWord: true },
@@ -130,6 +130,7 @@ async.series([
         ])
 	  })
 	}
+//     console.log(11111, tableData)
 	console.log(table(tableData, tableConfig))
   }
 })

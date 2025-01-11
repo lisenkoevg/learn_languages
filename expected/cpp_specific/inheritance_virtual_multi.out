@@ -1,0 +1,17 @@
+File ctor
+InputFile ctor
+OutputFile ctor
+IOFile ctor
+ioF.InputFile::a = 11
+ioF.OutputFile::a = 11
+ioF.a = 11
+
+File ctor
+InputFile ctor
+File ctor
+OutputFile ctor
+inF.a = 22
+outF.a = 33
+File dtor
+File dtor
+File dtor

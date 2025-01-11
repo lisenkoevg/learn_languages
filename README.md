@@ -226,9 +226,9 @@ $ node . --show --it echo_noeol
 ║ using System;                            │ <none>             ║
 ║                                          │ ===                ║
 ║ internal class Program {                 │ 1                  ║
-║   static void Main()                     │                    ║
-║     Console.Write("                      │                    ║
-║                                          │                    ║
+║   static void Main() {                   │                    ║
+║     Console.Write("1");                  │                    ║
+║   }                                      │                    ║
 ║ }                                        │                    ║
 ║                                          │                    ║
 ╟──────────────────────────────────────────┼────────────────────╢
@@ -245,7 +245,7 @@ $ node . --show --it echo_noeol
 ║ using namespace std;                     │ 1                  ║
 ║                                          │                    ║
 ║ int main() {                             │                    ║
-║   cout << "1                             │                    ║
+║   cout << "1";                           │                    ║
 ║ }                                        │                    ║
 ║                                          │                    ║
 ╟──────────────────────────────────────────┼────────────────────╢
@@ -260,8 +260,8 @@ $ node . --show --it echo_noeol
 ║ #include <stdio.h>                       │ <none>             ║
 ║                                          │ ===                ║
 ║ int main() {                             │ 1                  ║
-║   fprintf(stdout, "%s", "1"              │                    ║
-║   return                                 │                    ║
+║   fprintf(stdout, "%s", "1");            │                    ║
+║   return 0;                              │                    ║
 ║ }                                        │                    ║
 ║                                          │                    ║
 ╟──────────────────────────────────────────┼────────────────────╢
@@ -270,8 +270,8 @@ $ node . --show --it echo_noeol
 ║ #include <stdio.h>                       │ <none>             ║
 ║                                          │ ===                ║
 ║ int main() {                             │ 1                  ║
-║   printf("%s", "1"                       │                    ║
-║   return                                 │                    ║
+║   printf("%s", "1");                     │                    ║
+║   return 0;                              │                    ║
 ║ }                                        │                    ║
 ║                                          │                    ║
 ╟──────────────────────────────────────────┼────────────────────╢
@@ -290,7 +290,7 @@ $ node . --show --it echo_noeol
 ║ tests\php\stdInOutErr\echo_noeol.php     │ input === expected ║
 ╟──────────────────────────────────────────┼────────────────────╢
 ║ <?php                                    │ <none>             ║
-║   echo '1                                │ ===                ║
+║   echo '1';                              │ ===                ║
 ║                                          │ 1                  ║
 ╟──────────────────────────────────────────┼────────────────────╢
 ║ tests\python\stdInOutErr\echo_noeol.1.py │ input === expected ║

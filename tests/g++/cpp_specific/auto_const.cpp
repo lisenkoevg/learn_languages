@@ -8,6 +8,7 @@ int main() {
   auto c = cr;
   auto d = &i;
   auto e = &ci;
+  auto &g = ci;
 
   std::cout << (a == 0) << std::endl;
 
@@ -20,9 +21,12 @@ int main() {
   c = 42;
   std::cout << (c == 42 && cr == 0) << std::endl;
 
-//   error: invalid conversion from ‘int’ to ‘int*’ [-fpermissive]
-//   d = 42; 
+  //   error: invalid conversion from ‘int’ to ‘int*’ [-fpermissive]
+  //   d = 42;
 
-//   error: invalid conversion from ‘int’ to ‘const int*’ [-fpermissive]
-//   e = 42;
+  //   error: invalid conversion from ‘int’ to ‘const int*’ [-fpermissive]
+  //   e = 42;
+
+  //   error: assignment of read-only reference ‘g’
+  //   g = 42;
 }
