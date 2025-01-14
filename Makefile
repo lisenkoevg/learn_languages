@@ -16,7 +16,7 @@ clean:
 	$(info Clean output...)
 	rm -rf ./output; \
 	find . -depth -type d -name __pycache__ -execdir rm -rf '{}' \;
-	find . -type f -name *.exe -exec rm '{}' \;
+	find . -type f -name *.exe \( -exec echo rm '{}' \; -and -exec rm '{}' \; \)
 
 .PHONY: showExcluded
 showExcluded:
