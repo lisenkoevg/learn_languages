@@ -22,5 +22,6 @@ int main() {
   i = static_cast<int>(*pc);
   pv = static_cast<void*>(&d); // static_cast is optional
   pc = static_cast<char*>(pv);
+  cout << 1 << endl;
   return 0;
 }

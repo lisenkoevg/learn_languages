@@ -5,3 +5,6 @@ grade2()
 
 grade1()
 grade2()
+
+a,x,y=323
+a,x,y=212

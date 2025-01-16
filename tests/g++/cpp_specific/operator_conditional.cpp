@@ -24,9 +24,10 @@ int main() {
   cout << endl;
   finalgrade = (grade1() < 90) ? "high pass" : ((grade2() < 60) ? "fail" : "pass");
   cout << endl;
+#ifdef ERR
 //   error: operands to ‘?:’ have different types ‘const char*’ and ‘bool’
-//   finalgrade = ((grade1() > 90) ? "high pass" : (grade2() < 60)) ? "fail" : "pass";
-
+  finalgrade = ((grade1() > 90) ? "high pass" : (grade2() < 60)) ? "fail" : "pass";
+#endif
   int x = 1, y = 2;
   // true ? ++x, ++y : --x, --y;
   // without braces treated as
