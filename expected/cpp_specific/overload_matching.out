@@ -1,0 +1,3 @@
+f(int)
+f(int, int)
+f(double, double)
