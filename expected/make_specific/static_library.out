@@ -1,0 +1,8 @@
+hello.cpp
+hello.h
+hello.o
+libhello.a
+main.cpp
+main.exe
+static_library.mk
+Hello!
