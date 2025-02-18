@@ -1,0 +1,7 @@
+-Werror
+-Wfatal-errors
+-Wpedantic
+-pedantic-errors
+-Wall
+-Wno-unused-variable
+-Wno-unused-but-set-variable
