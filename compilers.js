@@ -8,6 +8,15 @@ module.exports = params => {
   const { verboseExecParams, verboseExecResult } = require('./lib.js')
 
   const COMPILERS = {
+    yasm64: {
+      cmd: 'yasm',
+      cmdArgs: '-f win64 ":FILE" -o ":FILE.o" && gcc -mcmodel=medium -no-pie -m64 -o ":FILE.exe" ":FILE.o"',
+      postCmd: 'rm -f ":FILE.exe" ":FILE.o"',
+      title: 'yasm64',
+      lineComment: ';',
+      ext: '.asm',
+      versionPattern: /(?<=yasm )[\d.]+/,
+    },
     bash: {
       cmd: 'bash',
       cmdArgs: '',
@@ -30,7 +39,7 @@ module.exports = params => {
     },
     gawk: {
       cmd: 'gawk',
-      cmdArgs: '-f',
+//       cmdArgs: '-f',
       cmdArgs: ':PRECMDRESULT -f',
       preCmdResult: (s, env) => env && Object.keys(env).map(name => `-v ${name}="${env[name]}"`).join(' ') || '',
       title: 'gawk',
@@ -42,7 +51,7 @@ module.exports = params => {
        cmd: 'g++',
   //     preCmd: 'g++ -MM ":FILE"',
   //     preCmdResult: (stdout => (stdout.match(/\b[^.\s]+\.h\b/g) || []).map(x => '"' + x.replace(/\.h/,'.c') + '"').join(' '),
-       cmdArgs: '":FILE" -Werror -Wextra -Wall -Wpedantic -o ":FILE.exe" && "./:FILE.exe"',
+//        cmdArgs: '":FILE" -Werror -Wextra -Wall -Wpedantic -o ":FILE.exe" && "./:FILE.exe"',
        cmdArgs: '":FILE" -o ":FILE.exe" && "./:FILE.exe"',
        postCmd: 'rm -f ":FILE.exe"',
        title: 'g++',

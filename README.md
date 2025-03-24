@@ -213,6 +213,16 @@ COMPILERS:
     "title": "winBatch",
     "versionArgs": "/c ver",
     "versionPattern": "/(?<=Microsoft Windows \\[Version )[\\d.]+/"
+  },
+  "yasm64": {
+    "cmd": "yasm",
+    "cmdArgs": "-f win64 \":FILE\" -o \":FILE.o\" && gcc -mcmodel=medium -no-pie -m64 -o \":FILE.exe\" \":FILE.o\"",
+    "ext": ".asm",
+    "lineComment": ";",
+    "postCmd": "rm -f \":FILE.exe\" \":FILE.o\"",
+    "title": "yasm64",
+    "versionArgs": "--version",
+    "versionPattern": "/(?<=yasm )[\\d.]+/"
   }
 }
 
